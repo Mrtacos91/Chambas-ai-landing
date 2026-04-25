@@ -1,34 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  --background: #080808;
-  --foreground: #ffffff;
+  --background: #f8f8f6;
+  --foreground: #111110;
+  --accent: #25d366;
+  --accent-hover: #1fbe5a;
+  --accent-dark: #15803d;
+  --border: #e4e4e2;
+  --surface: #ffffff;
+  --muted: #737370;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-dm-sans);
+  --font-display: var(--font-syne);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-dm-sans), sans-serif;
 }
 
 html {
   scroll-behavior: smooth;
 }
 
+/* ── Keyframes ── */
 @keyframes float {
   0%,
   100% {
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-14px);
+    transform: translateY(-12px);
   }
 }
 
@@ -43,24 +50,280 @@ html {
   }
 }
 
-@keyframes glow-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 20px rgba(37, 211, 102, 0.15);
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
   }
-  50% {
-    box-shadow: 0 0 50px rgba(37, 211, 102, 0.35);
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
+@keyframes dot-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes line-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ── Utility classes ── */
 .animate-float {
-  animation: float 4s ease-in-out infinite;
+  animation: float 4.5s ease-in-out infinite;
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.7s ease forwards;
+  animation: fadeInUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.font-display {
+  font-family: var(--font-syne), sans-serif;
+}
+
+/* ── Stagger delays ── */
+.delay-100 {
+  animation-delay: 100ms;
+}
+.delay-200 {
+  animation-delay: 200ms;
+}
+.delay-300 {
+  animation-delay: 300ms;
+}
+.delay-400 {
+  animation-delay: 400ms;
+}
+.delay-500 {
+  animation-delay: 500ms;
+}
+
+/* ── Scroll-driven animations (progressive enhancement) ── */
+@supports (animation-timeline: view()) {
+  .scroll-reveal {
+    animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 25%;
+  }
+}
+
+/* ── Button shimmer on hover ── */
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 65%
+  );
+  background-size: 200% auto;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.btn-shimmer:hover::after {
+  opacity: 1;
+  animation: shimmer 0.6s ease forwards;
+}
+
+/* ── Keyframes ── */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 25px rgba(37, 211, 102, 0.12),
+      0 0 60px rgba(37, 211, 102, 0.06);
+  }
+  50% {
+    box-shadow:
+      0 0 40px rgba(37, 211, 102, 0.28),
+      0 0 90px rgba(37, 211, 102, 0.14);
+  }
+}
+
+@keyframes border-spin {
+  0% {
+    --angle: 0deg;
+  }
+  100% {
+    --angle: 360deg;
+  }
+}
+
+@keyframes dot-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* ── Utility classes ── */
+.animate-float {
+  animation: float 4.5s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .glow-card {
-  animation: glow-pulse 3s ease-in-out infinite;
+  animation: glow-pulse 3.5s ease-in-out infinite;
+}
+
+.font-display {
+  font-family: var(--font-syne), sans-serif;
+}
+
+/* ── Stagger delays ── */
+.delay-100 {
+  animation-delay: 100ms;
+}
+.delay-200 {
+  animation-delay: 200ms;
+}
+.delay-300 {
+  animation-delay: 300ms;
+}
+.delay-400 {
+  animation-delay: 400ms;
+}
+.delay-500 {
+  animation-delay: 500ms;
+}
+.delay-600 {
+  animation-delay: 600ms;
+}
+
+/* ── Scroll-driven animations (progressive enhancement) ── */
+@supports (animation-timeline: view()) {
+  .scroll-reveal {
+    animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 25%;
+  }
+}
+
+/* ── Gradient text ── */
+.text-gradient {
+  background: linear-gradient(135deg, #25d366 0%, #1de87b 50%, #00c462 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Button shimmer on hover ── */
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 65%
+  );
+  background-size: 200% auto;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.btn-shimmer:hover::after {
+  opacity: 1;
+  animation: shimmer 0.6s ease forwards;
 }
