@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import InfoPage from "../info-page";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Seguridad",
   description:
-    "Principios de seguridad de Jalector para la protección de datos en procesos de búsqueda de candidatos y reclutamiento con IA.",
-  alternates: {
-    canonical: "https://jalector.com/seguridad",
-  },
-};
+    "Principios de seguridad de Jalector para la protección de datos en procesos de captación de candidatos y reclutamiento con IA.",
+  path: "/seguridad",
+});
 
 export default function SecurityPage() {
   return (

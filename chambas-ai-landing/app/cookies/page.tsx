@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import InfoPage from "../info-page";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Política de cookies",
   description:
-    "Política de cookies de Jalector. Información sobre tecnologías de medición usadas en nuestra plataforma de reclutamiento con IA.",
-  alternates: {
-    canonical: "https://jalector.com/cookies",
-  },
-};
+    "Política de cookies de Jalector. Información sobre tecnologías de medición usadas en nuestra plataforma de captación de candidatos por WhatsApp con IA.",
+  path: "/cookies",
+});
 
 export default function CookiesPage() {
   return (

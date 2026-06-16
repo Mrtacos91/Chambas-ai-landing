@@ -1,4 +1,7 @@
-import { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
+import { PROTECTED_PATHS, SITE_URL } from "@/lib/seo/config";
+
+export const dynamic = "force-static";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -6,9 +9,15 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
+        disallow: PROTECTED_PATHS,
+      },
+      {
+        userAgent: "Googlebot",
+        allow: "/",
+        disallow: PROTECTED_PATHS,
       },
     ],
-    sitemap: "https://jalector.com/sitemap.xml",
-    host: "https://jalector.com",
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }

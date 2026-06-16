@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import InfoPage from "../info-page";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Centro de ayuda y soporte",
   description:
-    "Canales de contacto y soporte para equipos que usan Jalector, la plataforma de búsqueda de empleo y candidatos con IA.",
-  alternates: {
-    canonical: "https://jalector.com/soporte",
-  },
-};
+    "Canales de contacto y soporte para equipos que usan Jalector, la plataforma de captación de candidatos por WhatsApp con panel ejecutivo.",
+  path: "/soporte",
+});
 
 export default function SupportPage() {
   return (

@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import InfoPage from "../info-page";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Términos y condiciones",
   description:
-    "Términos y condiciones de uso de Jalector, plataforma de búsqueda de candidatos y reclutamiento con inteligencia artificial.",
-  alternates: {
-    canonical: "https://jalector.com/terminos",
-  },
-};
+    "Términos y condiciones de uso de Jalector, plataforma de captación de candidatos por WhatsApp y reclutamiento con inteligencia artificial.",
+  path: "/terminos",
+});
 
 export default function TermsPage() {
   return (

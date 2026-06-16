@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import InfoPage from "../info-page";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Aviso de privacidad",
   description:
-    "Aviso de privacidad de Jalector. Cómo tratamos los datos de candidatos y empresas en nuestra plataforma de búsqueda de empleo con IA.",
-  alternates: {
-    canonical: "https://jalector.com/aviso-de-privacidad",
-  },
-};
+    "Aviso de privacidad de Jalector. Cómo tratamos los datos de candidatos y empresas en nuestra plataforma de captación de candidatos con WhatsApp.",
+  path: "/aviso-de-privacidad",
+});
 
 export default function PrivacyPage() {
   return (

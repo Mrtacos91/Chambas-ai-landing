@@ -1,48 +1,24 @@
-import { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
+import { PUBLIC_ROUTES, SITE_URL, publicUrl } from "@/lib/seo/config";
+
+export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const lastModified = new Date();
+  const landingImage = `${SITE_URL}/opengraph-image.png`;
+
   return [
-    {
-      url: "https://jalector.com",
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 1,
-    },
-    {
-      url: "https://jalector.com/soporte",
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
-    {
-      url: "https://jalector.com/seguridad",
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
-    {
-      url: "https://jalector.com/aviso-de-privacidad",
-      lastModified: new Date(),
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: "https://jalector.com/terminos",
-      lastModified: new Date(),
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: "https://jalector.com/cookies",
-      lastModified: new Date(),
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: "https://jalector.com/status",
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.4,
-    },
+    ...PUBLIC_ROUTES.map((route) => ({
+      url: publicUrl(route.path),
+      lastModified,
+      changeFrequency: route.changeFrequency,
+      priority: route.priority,
+      alternates: {
+        languages: {
+          "es-MX": publicUrl(route.path),
+        },
+      },
+      images: route.path === "/" ? [landingImage] : undefined,
+    })),
   ];
 }

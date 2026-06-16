@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Inter_Tight } from "next/font/google";
 import "./globals.css";
+import { OG_LOCALE, SITE_LOCALE, SITE_NAME, SITE_URL } from "@/lib/seo/config";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -17,16 +18,16 @@ const interTight = Inter_Tight({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://jalector.com"),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "Jalector | Captación de candidatos por WhatsApp y panel ejecutivo",
-    template: "%s | Jalector",
+    default: `${SITE_NAME} | Captación de candidatos por WhatsApp y panel ejecutivo`,
+    template: `%s | ${SITE_NAME}`,
   },
   description:
     "Jalector capta candidatos por WhatsApp con un chatbot que recolecta sus datos en 3 minutos y los entrega listos para contratar en tu panel ejecutivo. Reclutamiento sin formularios, sin CVs en PDF, sin Excel suelto.",
   keywords: [
     "jalector",
-    "captaci\u00f3n de candidatos por whatsapp",
+    "captacion de candidatos por whatsapp",
     "chatbot de reclutamiento",
     "chatbot reclutador whatsapp",
     "panel de candidatos",
@@ -34,21 +35,23 @@ export const metadata: Metadata = {
     "reclutamiento por whatsapp",
     "software de reclutamiento",
     "plataforma de empleo whatsapp",
-    "recolecci\u00f3n de datos candidatos",
+    "recoleccion de datos candidatos",
     "headhunter whatsapp",
-    "automatizaci\u00f3n de reclutamiento",
+    "automatizacion de reclutamiento",
     "screening de candidatos",
-    "selecci\u00f3n de personal con ia",
-    "contrataci\u00f3n operativa m\u00e9xico",
+    "seleccion de personal con ia",
+    "contratacion operativa mexico",
     "reclutamiento de cajeros repartidores meseros",
     "alternativa a occ computrabajo indeed",
     "agente de reclutamiento ia",
-    "talento m\u00e9xico",
+    "talento mexico",
     "panel ejecutivo de candidatos",
   ],
-  authors: [{ name: "Jalector", url: "https://jalector.com" }],
-  creator: "Jalector",
-  publisher: "Jalector",
+  applicationName: SITE_NAME,
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  generator: "Next.js",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/apple-icon.png" }],
@@ -66,85 +69,99 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    locale: "es_MX",
-    url: "https://jalector.com",
-    siteName: "Jalector",
-    title: "Jalector | Captación de candidatos por WhatsApp y panel ejecutivo",
+    locale: OG_LOCALE,
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} | Captación de candidatos por WhatsApp y panel ejecutivo`,
     description:
       "Capta candidatos por WhatsApp con un chatbot conversacional y gestiónalos desde tu panel ejecutivo. Diseñado para retail, restaurantes, logística y back office.",
     images: [
       {
-        url: "/logo.png",
-        width: 1230,
-        height: 1230,
-        alt: "Logo de Jalector - Captación de candidatos por WhatsApp",
+        url: `${SITE_URL}/opengraph-image.png`,
+        width: 1200,
+        height: 630,
+        alt: "Jalector - Captación de candidatos por WhatsApp con panel ejecutivo",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Jalector | Captación de candidatos por WhatsApp y panel ejecutivo",
+    title: `${SITE_NAME} | Captación de candidatos por WhatsApp y panel ejecutivo`,
     description:
       "Chatbot que entrevista a tus candidatos por WhatsApp y los entrega en tu panel ejecutivo listos para contratar.",
-    images: ["/logo.png"],
+    images: [`${SITE_URL}/opengraph-image.png`],
   },
   alternates: {
-    canonical: "https://jalector.com",
-    languages: {
-      "es-MX": "https://jalector.com",
-    },
+    canonical: SITE_URL,
+    languages: { [SITE_LOCALE]: SITE_URL },
   },
   category: "technology",
+  classification: "Business",
 };
+
+const ORG_ID = `${SITE_URL}#organization`;
+const WEBSITE_ID = `${SITE_URL}#website`;
 
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://jalector.com/#organization",
-      name: "Jalector",
-      url: "https://jalector.com",
+      "@id": ORG_ID,
+      name: SITE_NAME,
+      url: SITE_URL,
       logo: {
         "@type": "ImageObject",
-        url: "https://jalector.com/logo.png",
+        url: `${SITE_URL}/icon.svg`,
+        width: 512,
+        height: 512,
       },
       description:
         "Plataforma de captación de candidatos por WhatsApp con panel ejecutivo para gestionar todo el proceso de contratación.",
-      sameAs: ["https://jalector.com"],
+      sameAs: [SITE_URL],
     },
     {
       "@type": "WebSite",
-      "@id": "https://jalector.com/#website",
-      url: "https://jalector.com",
-      name: "Jalector",
-      publisher: { "@id": "https://jalector.com/#organization" },
-      inLanguage: "es-MX",
+      "@id": WEBSITE_ID,
+      url: SITE_URL,
+      name: SITE_NAME,
+      publisher: { "@id": ORG_ID },
+      inLanguage: SITE_LOCALE,
       description:
         "Capta candidatos por WhatsApp con un chatbot conversacional y gestiónalos desde tu panel ejecutivo.",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${SITE_URL}/?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
     },
     {
       "@type": "SoftwareApplication",
-      name: "Jalector",
+      name: SITE_NAME,
       applicationCategory: "BusinessApplication",
+      applicationSuite: "Captación de talento",
       operatingSystem: "Web, WhatsApp",
-      url: "https://jalector.com",
+      url: SITE_URL,
       description:
         "Chatbot de captación de candidatos por WhatsApp con panel ejecutivo para retail, restaurantes, logística y back office.",
+      publisher: { "@id": ORG_ID },
       offers: {
         "@type": "Offer",
         category: "reclutamiento por whatsapp",
+        priceCurrency: "MXN",
+        availability: "https://schema.org/InStock",
       },
     },
     {
       "@type": "Service",
+      "@id": `${SITE_URL}#service`,
       name: "Captación de candidatos por WhatsApp",
-      provider: { "@id": "https://jalector.com/#organization" },
       serviceType: "Reclutamiento por WhatsApp con panel ejecutivo",
-      areaServed: {
-        "@type": "Country",
-        name: "México",
-      },
+      provider: { "@id": ORG_ID },
+      areaServed: { "@type": "Country", name: "México" },
       description:
         "Jalector capta candidatos por WhatsApp con un chatbot que entrevista en 3 minutos y entrega cada perfil estructurado en tu panel ejecutivo.",
       hasOfferCatalog: {
@@ -170,16 +187,42 @@ const jsonLd = {
             },
           },
           {
-            "@type": "Service",
-            name: "Integración con WhatsApp Business API",
-            description:
-              "Conexión con el número oficial de WhatsApp Business para conversaciones a nombre de tu empresa.",
+            "@type": "Offer",
+            itemOffered: {
+              "@type": "Service",
+              name: "Integración con WhatsApp Business API",
+              description:
+                "Conexión con el número oficial de WhatsApp Business para conversaciones a nombre de tu empresa.",
+            },
           },
         ],
       },
     },
     {
+      "@type": "WebPage",
+      "@id": `${SITE_URL}#webpage`,
+      url: SITE_URL,
+      name: "Jalector - Captación de candidatos por WhatsApp con panel ejecutivo",
+      description:
+        "Chatbot que entrevista candidatos por WhatsApp y entrega perfiles en tu panel ejecutivo.",
+      inLanguage: SITE_LOCALE,
+      isPartOf: { "@id": WEBSITE_ID },
+      publisher: { "@id": ORG_ID },
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: SITE_NAME,
+          item: SITE_URL,
+        },
+      ],
+    },
+    {
       "@type": "FAQPage",
+      "@id": `${SITE_URL}#faq`,
       mainEntity: [
         {
           "@type": "Question",
@@ -191,18 +234,34 @@ const jsonLd = {
         },
         {
           "@type": "Question",
-          name: "¿Mis candidatos necesitan descargar una app?",
+          name: "¿Mis candidatos necesitan descargar una aplicación?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "No. Usan el WhatsApp que ya tienen instalado. Solo escanean un QR o dan clic en un link y la conversación con el chatbot inicia de inmediato.",
+            text: "No. Usan el WhatsApp que ya tienen instalado. Solo escanean un código QR o dan clic en un enlace y la conversación con el chatbot inicia de inmediato.",
           },
         },
         {
           "@type": "Question",
-          name: "¿Para qué empresas funciona Jalector?",
+          name: "¿Cómo funciona el panel ejecutivo de candidatos?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Funciona para empresas con contratación operativa de alto volumen como retail, restaurantes y logística, y también para roles corporativos como atención a cliente, ventas y back office.",
+            text: "El chatbot entrevista a cada candidato y guarda la información en campos estructurados. Tu panel ejecutivo muestra los perfiles con score, prioridad, match con tus vacantes y filtros por puesto, ubicación, turno y disponibilidad.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "¿Para qué tipo de empresas funciona Jalector?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Funciona para empresas con contratación operativa de alto volumen como retail, restaurantes, logística y manufactura, y también para roles corporativos como atención a cliente, ventas y back office.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "¿Cumple Jalector con la LFPDPPP?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Sí. Jalector aplica cifrado en tránsito y en reposo, entornos aislados por cliente y prácticas de manejo de datos personales conformes a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares de México.",
           },
         },
       ],

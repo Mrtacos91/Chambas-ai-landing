@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import InfoPage from "../info-page";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Estado del servicio",
   description:
-    "Estado operativo de los canales de Jalector, plataforma de búsqueda de empleo y candidatos con IA.",
-  alternates: {
-    canonical: "https://jalector.com/status",
-  },
-};
+    "Estado operativo de los canales de Jalector, plataforma de captación de candidatos por WhatsApp con panel ejecutivo.",
+  path: "/status",
+});
 
 export default function StatusPage() {
   return (
