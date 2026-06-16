@@ -1,46 +1,61 @@
 import type { Metadata } from "next";
-import { Syne, DM_Sans } from "next/font/google";
+import { Geist, Inter_Tight } from "next/font/google";
 import "./globals.css";
 
-const syne = Syne({
+const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-syne",
-  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-geist",
+  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
 });
 
-const dmSans = DM_Sans({
+const interTight = Inter_Tight({
   subsets: ["latin"],
-  variable: "--font-dm-sans",
-  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-inter-tight",
+  weight: ["300", "400", "500", "600"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://jalector.com"),
   title: {
-    default: "Chambas AI — Reclutamiento Inteligente por WhatsApp",
-    template: "%s | Chambas AI",
+    default: "Jalector | Captación de candidatos por WhatsApp y panel ejecutivo",
+    template: "%s | Jalector",
   },
   description:
-    "Contrata el mejor talento tecnológico con IA conversacional en WhatsApp. Sin formularios. Filtra miles de candidatos en segundos y recibe solo los perfiles que encajan — directo en tu chat.",
+    "Jalector capta candidatos por WhatsApp con un chatbot que recolecta sus datos en 3 minutos y los entrega listos para contratar en tu panel ejecutivo. Reclutamiento sin formularios, sin CVs en PDF, sin Excel suelto.",
   keywords: [
-    "reclutamiento por whatsapp",
-    "bot de reclutamiento ia",
-    "inteligencia artificial reclutamiento",
-    "contratar por whatsapp mexico",
-    "agente ia recursos humanos",
-    "software reclutamiento startups",
-    "chambas ai",
     "jalector",
-    "headhunter automatico ia",
-    "filtro de candidatos inteligente",
-    "reclutamiento automatizado latam",
+    "captaci\u00f3n de candidatos por whatsapp",
+    "chatbot de reclutamiento",
+    "chatbot reclutador whatsapp",
+    "panel de candidatos",
     "ats whatsapp",
+    "reclutamiento por whatsapp",
+    "software de reclutamiento",
+    "plataforma de empleo whatsapp",
+    "recolecci\u00f3n de datos candidatos",
+    "headhunter whatsapp",
+    "automatizaci\u00f3n de reclutamiento",
+    "screening de candidatos",
+    "selecci\u00f3n de personal con ia",
+    "contrataci\u00f3n operativa m\u00e9xico",
+    "reclutamiento de cajeros repartidores meseros",
+    "alternativa a occ computrabajo indeed",
+    "agente de reclutamiento ia",
+    "talento m\u00e9xico",
+    "panel ejecutivo de candidatos",
   ],
-  authors: [{ name: "Chambas AI", url: "https://jalector.com" }],
-  creator: "Chambas AI",
-  publisher: "Chambas AI",
+  authors: [{ name: "Jalector", url: "https://jalector.com" }],
+  creator: "Jalector",
+  publisher: "Jalector",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+  },
   robots: {
     index: true,
     follow: true,
@@ -56,26 +71,25 @@ export const metadata: Metadata = {
     type: "website",
     locale: "es_MX",
     url: "https://jalector.com",
-    siteName: "Chambas AI",
-    title: "Chambas AI — Reclutamiento Inteligente por WhatsApp",
+    siteName: "Jalector",
+    title: "Jalector | Captación de candidatos por WhatsApp y panel ejecutivo",
     description:
-      "Contrata el mejor talento tecnológico con IA conversacional en WhatsApp. Sin formularios. Filtra miles de candidatos en segundos.",
+      "Capta candidatos por WhatsApp con un chatbot conversacional y gestiónalos desde tu panel ejecutivo. Diseñado para retail, restaurantes, logística y back office.",
     images: [
       {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Chambas AI — Reclutamiento Inteligente por WhatsApp con Inteligencia Artificial",
+        url: "/logo.png",
+        width: 1230,
+        height: 1230,
+        alt: "Logo de Jalector - Captación de candidatos por WhatsApp",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Chambas AI — Reclutamiento Inteligente por WhatsApp",
+    title: "Jalector | Captación de candidatos por WhatsApp y panel ejecutivo",
     description:
-      "Contrata el mejor talento tecnológico con IA conversacional en WhatsApp. Sin formularios. Filtra miles de candidatos en segundos.",
-    images: ["/og-image.png"],
-    creator: "@chambas_ai",
+      "Chatbot que entrevista a tus candidatos por WhatsApp y los entrega en tu panel ejecutivo listos para contratar.",
+    images: ["/logo.png"],
   },
   alternates: {
     canonical: "https://jalector.com",
@@ -92,76 +106,106 @@ const jsonLd = {
     {
       "@type": "Organization",
       "@id": "https://jalector.com/#organization",
-      name: "Chambas AI",
+      name: "Jalector",
       url: "https://jalector.com",
       logo: {
         "@type": "ImageObject",
         url: "https://jalector.com/logo.png",
-        width: 180,
-        height: 40,
       },
       description:
-        "Plataforma de reclutamiento con inteligencia artificial que opera a través de WhatsApp. Filtra candidatos, evalúa perfiles y agenda entrevistas de forma conversacional.",
+        "Plataforma de captación de candidatos por WhatsApp con panel ejecutivo para gestionar todo el proceso de contratación.",
+      sameAs: ["https://jalector.com"],
     },
     {
       "@type": "WebSite",
       "@id": "https://jalector.com/#website",
       url: "https://jalector.com",
-      name: "Chambas AI",
+      name: "Jalector",
       publisher: { "@id": "https://jalector.com/#organization" },
       inLanguage: "es-MX",
-    },
-    {
-      "@type": "WebPage",
-      "@id": "https://jalector.com/#webpage",
-      url: "https://jalector.com",
-      name: "Chambas AI — Reclutamiento Inteligente por WhatsApp",
-      isPartOf: { "@id": "https://jalector.com/#website" },
-      about: { "@id": "https://jalector.com/#organization" },
       description:
-        "Contrata el mejor talento tecnológico con IA conversacional en WhatsApp. Sin formularios. Filtra miles de candidatos en segundos y recibe solo los perfiles que encajan.",
-      inLanguage: "es-MX",
+        "Capta candidatos por WhatsApp con un chatbot conversacional y gestiónalos desde tu panel ejecutivo.",
     },
     {
       "@type": "SoftwareApplication",
-      name: "Chambas AI",
+      name: "Jalector",
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web, WhatsApp",
       url: "https://jalector.com",
+      description:
+        "Chatbot de captación de candidatos por WhatsApp con panel ejecutivo para retail, restaurantes, logística y back office.",
       offers: {
         "@type": "Offer",
-        price: "0",
-        priceCurrency: "MXN",
-        description: "Plan gratuito disponible",
+        category: "reclutamiento por whatsapp",
+      },
+    },
+    {
+      "@type": "Service",
+      name: "Captación de candidatos por WhatsApp",
+      provider: { "@id": "https://jalector.com/#organization" },
+      serviceType: "Reclutamiento por WhatsApp con panel ejecutivo",
+      areaServed: {
+        "@type": "Country",
+        name: "México",
       },
       description:
-        "Agente de reclutamiento con IA que filtra candidatos y gestiona el proceso de contratación a través de conversaciones en WhatsApp.",
+        "Jalector capta candidatos por WhatsApp con un chatbot que entrevista en 3 minutos y entrega cada perfil estructurado en tu panel ejecutivo.",
+      hasOfferCatalog: {
+        "@type": "OfferCatalog",
+        name: "Servicios de reclutamiento por WhatsApp",
+        itemListElement: [
+          {
+            "@type": "Offer",
+            itemOffered: {
+              "@type": "Service",
+              name: "Chatbot de captación por WhatsApp",
+              description:
+                "Entrevista automatizada por WhatsApp que recolecta datos clave del candidato sin formularios.",
+            },
+          },
+          {
+            "@type": "Offer",
+            itemOffered: {
+              "@type": "Service",
+              name: "Panel ejecutivo de candidatos",
+              description:
+                "Vista única con filtros, prioridades y match contra vacantes activas para todo el equipo de talento.",
+            },
+          },
+          {
+            "@type": "Service",
+            name: "Integración con WhatsApp Business API",
+            description:
+              "Conexión con el número oficial de WhatsApp Business para conversaciones a nombre de tu empresa.",
+          },
+        ],
+      },
     },
     {
       "@type": "FAQPage",
       mainEntity: [
         {
           "@type": "Question",
-          name: "¿Cómo funciona el reclutamiento por WhatsApp con Chambas AI?",
+          name: "¿Qué es Jalector?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Describes el perfil que buscas en lenguaje natural a través de WhatsApp. Chambas AI analiza miles de candidatos en segundos y te presenta los que mejor encajan, con un score de compatibilidad y resumen ejecutivo.",
+            text: "Jalector es una plataforma de captación de candidatos por WhatsApp con un panel ejecutivo donde tu empresa gestiona los perfiles que el chatbot recolecta.",
           },
         },
         {
           "@type": "Question",
-          name: "¿Chambas AI reemplaza a un reclutador humano?",
+          name: "¿Mis candidatos necesitan descargar una app?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Chambas AI automatiza el proceso de screening y primera selección, permitiendo que tu equipo se enfoque en entrevistas de fondo y cierre de ofertas. Funciona como un headhunter disponible 24/7.",
+            text: "No. Usan el WhatsApp que ya tienen instalado. Solo escanean un QR o dan clic en un link y la conversación con el chatbot inicia de inmediato.",
           },
         },
         {
           "@type": "Question",
-          name: "¿Cuánto tiempo toma contratar con Chambas AI?",
+          name: "¿Para qué empresas funciona Jalector?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "El tiempo promedio de contratación con Chambas AI es de 48 horas, desde la primera búsqueda hasta la presentación de candidatos calificados.",
+            text: "Funciona para empresas con contratación operativa de alto volumen como retail, restaurantes y logística, y también para roles corporativos como atención a cliente, ventas y back office.",
           },
         },
       ],
@@ -169,20 +213,33 @@ const jsonLd = {
   ],
 };
 
+const themeScript = `
+(() => {
+  try {
+    const stored = localStorage.getItem("jalector-theme");
+    const theme = stored || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.dataset.theme = theme;
+  } catch {
+    document.documentElement.dataset.theme = "light";
+  }
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es-MX">
+    <html lang="es-MX" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className={`${syne.variable} ${dmSans.variable} antialiased`}>
+      <body className={`${geist.variable} ${interTight.variable} antialiased`}>
         {children}
       </body>
     </html>
