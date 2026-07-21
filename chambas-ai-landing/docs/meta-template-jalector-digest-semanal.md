@@ -1,65 +1,51 @@
 # Plantilla Meta WhatsApp — jalector_digest_semanal
 
 ## Estado
-Pendiente de crear y aprobar en Meta Business Manager / WhatsApp Manager.
-Hasta que esté APPROVED, el workflow `WA - Digest semanal empresas` usa **solo email** (`enable_whatsapp = false`).
+**APPROVED** en Meta. Workflow `WA - Digest semanal empresas` con `enable_whatsapp = true`.
 
-## Datos sugeridos para crear la plantilla
+## Datos de la plantilla
 
 | Campo | Valor |
 |---|---|
 | Nombre | `jalector_digest_semanal` |
-| Idioma | `es_MX` |
-| Categoría | Utility (preferible) o Marketing |
-| Header | ninguno o texto fijo `Jalector` |
-| Body | ver abajo |
-| Footer | `Panel: jalector.com/cliente` |
-| Buttons | URL opcional a `https://jalector.com/cliente?modulo=candidatos` |
-
-## Body (3 variables)
-
-```
-Hola {{1}}, este es tu resumen semanal de Jalector.
-
-Candidatos interesados esta semana: {{2}}
-
-{{3}}
-
-Entra al panel para ver el detalle completo.
-```
-
-Variables en el envío Graph API:
-1. `company_name`
-2. `candidates_count` (número como string)
-3. `digest_summary` (hasta ~900 caracteres; máx. 5 candidatos)
-
-## Ejemplo de payload Graph API
-
-```json
-{
-  "messaging_product": "whatsapp",
-  "to": "52155XXXXXXXX",
-  "type": "template",
-  "template": {
-    "name": "jalector_digest_semanal",
-    "language": { "code": "es_MX" },
-    "components": [
-      {
-        "type": "body",
-        "parameters": [
-          { "type": "text", "text": "Max" },
-          { "type": "text", "text": "3" },
-          { "type": "text", "text": "1) Ana López — Cajera — Tel 52155...\\n2) ..." }
-        ]
-      }
-    ]
-  }
-}
-```
+| Idioma | `es` (no `es_MX`; Meta devolvió 132001 si se usa es_MX) |
+| Body vars | `{{1}}` empresa, `{{2}}` conteo, `{{3}}` resumen |
 
 ## Activación en n8n
 
-Cuando Meta apruebe la plantilla:
-1. Abrir workflow `WA - Digest semanal empresas`
-2. En el nodo `Config digest`, poner `enable_whatsapp` = `true`
-3. Confirmar que el nombre de plantilla en el HTTP Request coincide
+1. Workflow: `WA - Digest semanal empresas` (`LW9YXlA758ca3PiU`)
+2. Nodo `Config digest`: `enable_whatsapp` = `true`
+3. Plantilla HTTP: `jalector_digest_semanal` / idioma `es`
+
+## Cómo probar
+
+### Requisitos
+- Empresa `active = true`
+- `companies.contact_phone` con 10 dígitos MX (ej. `5519018376`) → el flujo lo normaliza a `521...`
+- Al menos 1 fila en `candidate_selected_vacancies` de esa empresa en los últimos 7 días
+- Que no exista ya un log de digest para la semana actual en `company_digest_logs` (mismo `company_id` + `period_start`)
+
+### Pasos
+1. Abre [WA - Digest semanal empresas](https://bot.jalector.com/workflow/LW9YXlA758ca3PiU)
+2. Click **Probar manual** (manual trigger) → Execute workflow
+3. Revisa la ejecución:
+   - `Armar digest` → `use_whatsapp: true`, `to_phone` con `521...`
+   - `WhatsApp template digest` → HTTP 200 de Graph API
+   - `Log envio WhatsApp` → insert en `company_digest_logs`
+4. Confirma el mensaje en el WhatsApp del `contact_phone` de la empresa
+
+### Si no envía
+- Sin intereses 7d → el SQL no devuelve filas
+- Ya hay log de esa semana → borrar el log de prueba:
+  `delete from company_digest_logs where company_id = '<uuid>' and period_start = (date_trunc('week', timezone('America/Mexico_City', now())))::date;`
+- Sin `contact_phone` → cae a email si hay `contact_email`
+- Error Graph 132001 → el idioma no coincide. En WhatsApp Manager abre la plantilla y copia el **Language code** exacto (`es`, `es_MX`, etc.) a `wa_lang` en Config digest.
+
+### Producción
+Corre solo los **lunes 09:00** (`America/Mexico_City`).
+
+Si la empresa tiene `contact_phone` y `contact_email`, recibe **WhatsApp y email** en paralelo.
+
+### Contenido
+- WhatsApp (`{{3}}`): una sola linea por Meta (sin saltos). Formato: `1) Nombre - Vacante: X - Zona: Y - Tel: Z // 2) ...`
+- Email: HTML con entidades UTF-8 (`&oacute;`, `&eacute;`), tipografia Arial, vacante etiquetada en cada card, contador de interes y CTA al panel.

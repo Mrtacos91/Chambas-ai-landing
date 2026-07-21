@@ -1,0 +1,195 @@
+﻿const cfg = $('Config digest').first().json;
+const enableWhatsapp = cfg.enable_whatsapp === true || cfg.enable_whatsapp === 'true';
+const panelUrl = cfg.panel_url || 'https://jalector.com/cliente?modulo=candidatos';
+const maxCandidates = Number(cfg.max_candidates) || 5;
+const row = $json;
+
+let candidates = row.candidates;
+if (typeof candidates === 'string') {
+  try {
+    candidates = JSON.parse(candidates);
+  } catch (e) {
+    candidates = [];
+  }
+}
+if (!Array.isArray(candidates)) candidates = [];
+
+const total = Number(row.candidates_count) || candidates.length;
+const shown = candidates.slice(0, maxCandidates);
+const companyName = row.company_name || 'Empresa';
+
+function normalizePhone(raw) {
+  if (!raw) return '';
+  let d = String(raw).replace(/\D/g, '');
+  if (d.startsWith('521') && d.length >= 13) return d;
+  if (d.startsWith('52') && d.length === 12) return '521' + d.slice(2);
+  if (d.length === 10) return '521' + d;
+  return d;
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function cleanText(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatPhoneDisplay(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.length >= 10) {
+    const local = d.slice(-10);
+    return local.slice(0, 2) + ' ' + local.slice(2, 6) + ' ' + local.slice(6);
+  }
+  return cleanText(phone) || 'Sin telefono';
+}
+
+const waBlocks = shown.map((c, i) => {
+  const name = cleanText(c.candidate_name) || 'Candidato';
+  const vac = cleanText(c.vacancy_title) || 'Vacante';
+  const phone = formatPhoneDisplay(c.candidate_phone);
+  const meta = [c.ubicacion, c.experiencia, c.turno]
+    .map(cleanText)
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' À ');
+  const salary = cleanText(c.expectativa);
+  let block = i + 1 + '. *' + name + '*\n';
+  block += 'Puesto: ' + vac + '\n';
+  if (meta) block += meta + '\n';
+  if (salary) block += 'Salario: ' + salary + '\n';
+  block += 'Tel: ' + phone;
+  return block;
+});
+
+let digestSummary = waBlocks.join('\n\n');
+if (total > maxCandidates) {
+  digestSummary +=
+    '\n\n+' +
+    (total - maxCandidates) +
+    ' candidatos mas en tu panel Jalector.';
+}
+if (!digestSummary) {
+  digestSummary = 'Sin detalle disponible. Abre el panel para revisar candidatos.';
+}
+if (digestSummary.length > 900) {
+  digestSummary = digestSummary.slice(0, 897) + '...';
+}
+
+const toPhone = normalizePhone(row.contact_phone);
+const toEmail = (row.contact_email || '').trim();
+
+const candidateCardsHtml = shown
+  .map((c) => {
+    const name = escapeHtml(cleanText(c.candidate_name) || 'Candidato');
+    const vac = escapeHtml(cleanText(c.vacancy_title) || 'Vacante');
+    const phone = escapeHtml(formatPhoneDisplay(c.candidate_phone));
+    const ubicacion = escapeHtml(cleanText(c.ubicacion) || 'Zona por confirmar');
+    const experiencia = escapeHtml(cleanText(c.experiencia) || 'Experiencia por confirmar');
+    const turno = escapeHtml(cleanText(c.turno) || 'Turno abierto');
+    const salario = escapeHtml(cleanText(c.expectativa) || 'Por confirmar');
+    return (
+      '<tr>' +
+      '<td style="padding:0 0 12px 0;">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">' +
+      '<tr><td style="padding:16px 18px;">' +
+      '<p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#10b981;">Candidato interesado</p>' +
+      '<p style="margin:8px 0 0;font-size:18px;line-height:1.3;font-weight:600;color:#0f172a;">' +
+      name +
+      '</p>' +
+      '<p style="margin:6px 0 0;font-size:14px;color:#334155;">' +
+      vac +
+      '</p>' +
+      '<p style="margin:12px 0 0;font-size:13px;line-height:1.6;color:#64748b;">' +
+      ubicacion +
+      ' À ' +
+      experiencia +
+      ' À ' +
+      turno +
+      '<br/>Expectativa: ' +
+      salario +
+      '<br/>Tel: ' +
+      phone +
+      '</p>' +
+      '</td></tr></table></td></tr>'
+    );
+  })
+  .join('');
+
+const moreHtml =
+  total > maxCandidates
+    ? '<tr><td style="padding:4px 0 0;font-size:13px;color:#64748b;">+' +
+      (total - maxCandidates) +
+      ' candidatos mas disponibles en tu panel.</td></tr>'
+    : '';
+
+const emailHtml =
+  '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>' +
+  '<body style="margin:0;padding:0;background:#f8fafc;color:#0f172a;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;">' +
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:28px 12px;">' +
+  '<tr><td align="center">' +
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e2e8f0;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08);">' +
+  '<tr><td style="padding:28px 28px 20px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);">' +
+  '<p style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#6ee7b7;">Jalector</p>' +
+  '<h1 style="margin:10px 0 0;font-size:28px;line-height:1.2;font-weight:500;color:#f8fafc;">Resumen semanal de candidatos</h1>' +
+  '<p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:rgba(248,250,252,0.72);">Capta por WhatsApp. Decide desde tu panel.</p>' +
+  '</td></tr>' +
+  '<tr><td style="padding:24px 28px 8px;">' +
+  '<p style="margin:0;font-size:15px;line-height:1.6;color:#334155;">Hola, equipo de <strong style="color:#0f172a;">' +
+  escapeHtml(companyName) +
+  '</strong>.</p>' +
+  '<p style="margin:12px 0 0;font-size:15px;line-height:1.6;color:#64748b;">Esta semana el chatbot de Jalector capt¾ perfiles con interes declarado en tus vacantes.</p>' +
+  '</td></tr>' +
+  '<tr><td style="padding:8px 28px 20px;">' +
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:16px;">' +
+  '<tr><td style="padding:16px 18px;">' +
+  '<p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#059669;">Interes esta semana</p>' +
+  '<p style="margin:6px 0 0;font-size:32px;line-height:1;font-weight:600;color:#0f172a;">' +
+  total +
+  '</p>' +
+  '<p style="margin:8px 0 0;font-size:13px;color:#64748b;">Candidatos listos para revisar en tu CRM</p>' +
+  '</td></tr></table>' +
+  '</td></tr>' +
+  '<tr><td style="padding:4px 28px 8px;">' +
+  '<p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#10b981;">Destacados</p>' +
+  '</td></tr>' +
+  '<tr><td style="padding:0 28px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
+  (candidateCardsHtml ||
+    '<tr><td style="padding:12px 0;font-size:14px;color:#64748b;">Sin detalle de candidatos en este envio.</td></tr>') +
+  moreHtml +
+  '</table></td></tr>' +
+  '<tr><td style="padding:16px 28px 28px;" align="center">' +
+  '<a href="' +
+  escapeHtml(panelUrl) +
+  '" style="display:inline-block;background:#10b981;color:#041026;text-decoration:none;font-size:14px;font-weight:700;padding:14px 22px;border-radius:999px;">Abrir panel de candidatos</a>' +
+  '<p style="margin:14px 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">Jalector À Capta candidatos por WhatsApp À Decide desde tu panel</p>' +
+  '</td></tr>' +
+  '</table>' +
+  '</td></tr></table></body></html>';
+
+const useWhatsapp = enableWhatsapp && !!toPhone;
+const useEmail = !!toEmail;
+
+return {
+  company_id: row.company_id,
+  company_name: companyName,
+  candidates_count: total,
+  digest_summary: digestSummary,
+  to_phone: toPhone,
+  to_email: toEmail,
+  email_html: emailHtml,
+  email_subject: 'Jalector À ' + total + ' candidatos interesados À ' + companyName,
+  use_whatsapp: useWhatsapp,
+  use_email: useEmail,
+  period_start: row.period_start,
+  panel_url: panelUrl,
+  wa_template: cfg.wa_template || 'jalector_digest_semanal',
+  wa_lang: cfg.wa_lang || 'es',
+};
+
