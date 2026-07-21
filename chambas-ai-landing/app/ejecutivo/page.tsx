@@ -7,9 +7,9 @@ import ExecutiveDashboard, {
 import { requireExecutive } from "@/lib/auth/guards";
 
 export const metadata: Metadata = {
-  title: "Panel ejecutivo de candidatos",
+  title: "Panel interno Jalector",
   description:
-    "Panel ejecutivo para dar seguimiento a candidatos capturados desde el chat de WhatsApp.",
+    "Panel de uso interno para seguimiento global de candidatos y activación de cuentas.",
   robots: {
     index: false,
     follow: false,
@@ -135,7 +135,7 @@ export default async function ExecutiveDashboardPage({
 }: {
   searchParams?: Promise<{ modulo?: ExecutiveModule }>;
 }) {
-  await requireExecutive();
+  const executive = await requireExecutive();
   const params = await searchParams;
   const data = await getDashboardData();
   const rows = buildRows(data);
@@ -157,6 +157,11 @@ export default async function ExecutiveDashboardPage({
       isLocked={false}
       rows={rows}
       stats={stats}
+      user={{
+        email: executive.email,
+        fullName: executive.fullName,
+        avatarUrl: executive.avatarUrl,
+      }}
     />
   );
 }

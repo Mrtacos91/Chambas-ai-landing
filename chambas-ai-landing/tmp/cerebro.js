@@ -1,0 +1,968 @@
+function clean(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+function safeJsonParse(value, fallback = {}) {
+  if (!value) return fallback;
+
+  if (typeof value === 'object') return value;
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function toBoolean(value) {
+  if (value === true) return true;
+  if (value === false) return false;
+  if (String(value).toLowerCase() === 'true') return true;
+  return false;
+}
+
+function firstName(nombre) {
+  return String(nombre || 'candidato').split(' ')[0];
+}
+
+function isGreeting(text) {
+  return (
+    text === 'hola' ||
+    text === 'buenos dias' ||
+    text === 'buenas tardes' ||
+    text === 'buenas noches' ||
+    text === 'hey' ||
+    text === 'hello'
+  );
+}
+
+function isYes(text) {
+  return (
+    text.includes('si') ||
+    text.includes('comenzar') ||
+    text.includes('continuar') ||
+    text.includes('me interesa') ||
+    text === '1'
+  );
+}
+
+function isNo(text) {
+  return (
+    text.includes('no') ||
+    text.includes('no gracias') ||
+    text.includes('no por ahora') ||
+    text.includes('despues') ||
+    text.includes('después')
+  );
+}
+
+function isCorrection(text) {
+  return (
+    text.includes('corregir') ||
+    text.includes('editar') ||
+    text.includes('actualizar') ||
+    text === '2'
+  );
+}
+
+function optionNumber(text) {
+  const raw = String(text || '').trim();
+  const cleaned = clean(raw);
+  const match = cleaned.match(/^([1-4])(?![0-9])/);
+  if (match) return Number(match[1]);
+  return null;
+}
+
+function parseExperiencia(text) {
+  const n = optionNumber(text);
+  if (n === 1 || text.includes('menos')) return 'Menos de 1 año';
+  if (n === 2 || text.includes('1 a 2')) return '1 a 2 años';
+  if (n === 3 || text.includes('3 a 5')) return '3 a 5 años';
+  if (n === 4 || text.includes('mas')) return 'Más de 5 años';
+  return null;
+}
+
+function parseDisponibilidad(text) {
+  const n = optionNumber(text);
+  if (n === 1 || text.includes('inmediatamente')) return 'Inmediatamente';
+  if (n === 2 || text.includes('esta semana')) return 'Esta semana';
+  if (n === 3 || text.includes('15')) return 'En 15 días';
+  if (n === 4 || text.includes('mes')) return 'En un mes';
+  return null;
+}
+
+function parseTurno(text) {
+  const n = optionNumber(text);
+  if (n === 1 || text.includes('matutino') || text.includes('manana')) return 'Matutino';
+  if (n === 2 || text.includes('vespertino') || text.includes('tarde')) return 'Vespertino';
+  if (n === 3 || text.includes('nocturno') || text.includes('noche')) return 'Nocturno';
+  if (n === 4 || text.includes('cualquiera')) return 'Cualquiera';
+  if (text.includes('matutino') || text.includes('manana')) return 'Matutino';
+  if (text.includes('vespertino') || text.includes('tarde')) return 'Vespertino';
+  if (text.includes('nocturno') || text.includes('noche')) return 'Nocturno';
+  if (text.includes('cualquiera')) return 'Cualquiera';
+  return null;
+}
+
+function parseSalario(text) {
+  const n = optionNumber(text);
+  if (n === 1 || text.includes('menos')) return 'Menos de $10000';
+  if (n === 2 || text.includes('10000') || text.includes('10,000') || text.includes('10.000')) return '$10000 a $15000';
+  if (n === 3 || text.includes('15000') || text.includes('15,000') || text.includes('15.000')) return '$15000 a $20000';
+  if (n === 4 || text.includes('20000') || text.includes('20,000') || text.includes('20.000') || text.includes('mas')) return 'Más de $20000';
+  return null;
+}
+
+function parseDocumentacion(text) {
+  if (text.includes('faltan') || text.includes('algunos')) return 'Me faltan algunos documentos';
+  if (text.includes('completa') || text.includes('si')) return 'Si completa';
+  if (text.includes('no')) return 'No la tengo completa';
+  return null;
+}
+
+
+const JOB_TITLES = [
+  'Almacenista',
+  'Analista de datos',
+  'Asistente administrativo',
+  'Auxiliar administrativo',
+  'Ayudante de almacén',
+  'Ayudante de cocina',
+  'Ayudante general',
+  'Bartender',
+  'Cajero',
+  'Cajera',
+  'Chofer',
+  'Cocinero',
+  'Community manager',
+  'Desarrollador de software',
+  'Diseñador gráfico',
+  'Diseñador UI/UX',
+  'Electricista',
+  'Guardia de seguridad',
+  'Hostess',
+  'Lavaloza',
+  'Limpieza',
+  'Mesero',
+  'Mesera',
+  'Montacargas',
+  'Recepcionista',
+  'Repartidor',
+  'Soporte técnico',
+  'Supervisor de piso',
+  'Ventas',
+];
+
+function formatJobTitlesList() {
+  return JOB_TITLES.map((title, index) => (index + 1) + '. ' + title).join('\n');
+}
+
+function resolvePuestoBuscado(rawText, cleanedText) {
+  const text = String(rawText || '').trim();
+  if (!text) return null;
+
+  const asNumber = Number(cleanedText);
+  if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= JOB_TITLES.length) {
+    return JOB_TITLES[asNumber - 1];
+  }
+
+  const matchByIndex = cleanedText.match(/^(\d+)\s*[.)\-:]?/);
+  if (matchByIndex) {
+    const index = Number(matchByIndex[1]);
+    if (Number.isInteger(index) && index >= 1 && index <= JOB_TITLES.length) {
+      return JOB_TITLES[index - 1];
+    }
+  }
+
+  const catalogHit = JOB_TITLES.find((title) => clean(title) === cleanedText);
+  if (catalogHit) return catalogHit;
+
+  return text.replace(/\s+/g, ' ');
+}
+
+function isValidCurp(value) {
+  const curp = String(value || '').trim().toUpperCase();
+  const regex = /^[A-Z][AEIOUX][A-Z]{2}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]\d$/;
+  return regex.test(curp);
+}
+
+function profileToData(profile) {
+  if (!profile) return {};
+
+  return {
+    nombre_completo: profile.nombre_completo || '',
+    edad: profile.edad || '',
+    ubicacion: profile.ubicacion || '',
+    ultimo_empleo: profile.ultimo_empleo || '',
+    puesto_buscado: profile.puesto_buscado || '',
+    experiencia: profile.experiencia || '',
+    disponibilidad: profile.disponibilidad || '',
+    turno_preferido: profile.turno_preferido || '',
+    expectativa_salarial: profile.expectativa_salarial || '',
+    documentacion: profile.documentacion || '',
+    curp: profile.curp || '',
+    source: profile.source || 'whatsapp',
+    campaign: profile.campaign || 'organic',
+    medium: profile.medium || 'whatsapp'
+  };
+}
+
+function buildSummary(data) {
+  return `Perfecto 👍
+Esto es lo que registré:
+
+👤 Nombre: ${data.nombre_completo || ''}
+📍 Zona: ${data.ubicacion || ''}
+💼 Último empleo: ${data.ultimo_empleo || ''}
+🎯 Puesto buscado: ${data.puesto_buscado || ''}
+📈 Experiencia: ${data.experiencia || ''}
+⏰ Disponibilidad: ${data.disponibilidad || ''}
+🌐 Turno preferido: ${data.turno_preferido || ''}
+💰 Expectativa salarial: ${data.expectativa_salarial || ''}
+📄 Documentación: ${data.documentacion || ''}
+
+¿Todo está correcto?
+
+✅ Sí, continuar
+✏️ Corregir información`;
+}
+
+function buildExistingProfileMenu(data) {
+  return `Hola ${firstName(data.nombre_completo)} 👋
+
+Ya tengo tu perfil registrado:
+
+👤 Nombre: ${data.nombre_completo || ''}
+📍 Zona: ${data.ubicacion || ''}
+💼 Último empleo: ${data.ultimo_empleo || ''}
+🎯 Puesto buscado: ${data.puesto_buscado || ''}
+📈 Experiencia: ${data.experiencia || ''}
+⏰ Disponibilidad: ${data.disponibilidad || ''}
+🌐 Turno preferido: ${data.turno_preferido || ''}
+💰 Expectativa salarial: ${data.expectativa_salarial || ''}
+📄 Documentación: ${data.documentacion || ''}
+
+¿Qué quieres hacer?
+
+1️⃣ Ver vacantes compatibles
+2️⃣ Actualizar mis datos
+3️⃣ Hablar con un reclutador`;
+}
+
+function getLastVacancies(data) {
+  if (!data || !data.last_vacancies) return [];
+
+  if (Array.isArray(data.last_vacancies)) {
+    return data.last_vacancies;
+  }
+
+  if (typeof data.last_vacancies === 'string') {
+    return safeJsonParse(data.last_vacancies, []);
+  }
+
+  return [];
+}
+
+function parseVacancySelection(text, data) {
+  const vacancies = getLastVacancies(data);
+  if (!vacancies.length) return null;
+
+  const match = String(text || '').match(/\d+/);
+  if (!match) return null;
+
+  const selectedNumber = Number(match[0]);
+  const index = selectedNumber - 1;
+
+  if (index < 0 || index >= vacancies.length) return null;
+
+  return {
+    selected_number: selectedNumber,
+    selected_index: index,
+    vacancy: vacancies[index],
+  };
+}
+
+const telefono = $json.telefono;
+const text = String($json.incoming_text || '').trim();
+const normalized = clean(text);
+
+const candidateExists = toBoolean($json.candidate_exists);
+const candidateProfile = $json.candidate_profile || null;
+
+let data = safeJsonParse($json.data, {});
+
+let currentStep = $json.current_step || 'bienvenida';
+let nextStep = currentStep;
+let reply = '';
+
+let shouldUpsertCandidate = false;
+let shouldSearchVacancies = false;
+let shouldSaveSelectedVacancy = false;
+
+let candidateStatus = 'draft';
+let notifyRecruiter = false;
+
+let selectedVacancy = null;
+let selectedVacancyId = null;
+
+const registrationSteps = new Set([
+  'esperando_nombre',
+  'esperando_edad',
+  'esperando_ubicacion',
+  'esperando_ultimo_empleo',
+  'esperando_puesto_buscado',
+  'esperando_experiencia',
+  'esperando_disponibilidad',
+  'esperando_turno',
+  'esperando_expectativa_salarial',
+  'esperando_documentacion',
+  'esperando_curp',
+  'confirmacion_resumen'
+]);
+
+const shouldShowExistingProfileMenu =
+  candidateExists &&
+  (
+    currentStep === 'bienvenida' ||
+    currentStep === 'registro_exitoso' ||
+    currentStep === 'contacto_reclutador' ||
+    normalized === 'menu' ||
+    normalized === 'inicio' ||
+    normalized === 'empezar' ||
+    (isGreeting(normalized) && !registrationSteps.has(currentStep))
+  );
+
+if (shouldShowExistingProfileMenu) {
+  data = {
+    ...profileToData(candidateProfile),
+    last_vacancies: data.last_vacancies || [],
+  };
+
+  currentStep = 'menu_candidato_existente';
+}
+
+switch (currentStep) {
+  case 'bienvenida':
+    if (candidateExists) {
+      data = {
+        ...profileToData(candidateProfile),
+        last_vacancies: data.last_vacancies || [],
+      };
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `👋 ¡Hola!
+Soy Jalector 🚀
+
+Estoy aquí para ayudarte a encontrar oportunidades de trabajo que realmente se adapten a tu experiencia.
+
+Nos tomará menos de 2 minutos.
+
+¿Comenzamos?
+
+✅ Sí, comenzar`;
+    nextStep = 'esperando_inicio';
+    break;
+
+  case 'menu_candidato_existente': {
+    const profileData = profileToData(candidateProfile);
+    const sessionSalary = data && data.expectativa_salarial;
+    const sessionDocs = data && data.documentacion;
+    const corruptSalary = !sessionSalary || sessionSalary === 'Menos de $10' || sessionSalary === '000';
+    const corruptDocs = !sessionDocs || sessionDocs === '000' || sessionDocs === '0';
+
+    data = {
+      ...profileData,
+      ...(data || {}),
+      nombre_completo: (data && data.nombre_completo) || profileData.nombre_completo,
+      ubicacion: (data && data.ubicacion) || profileData.ubicacion,
+      puesto_buscado: (data && data.puesto_buscado) || profileData.puesto_buscado,
+      turno_preferido: (data && data.turno_preferido) || profileData.turno_preferido,
+      experiencia: (data && data.experiencia) || profileData.experiencia,
+      expectativa_salarial: corruptSalary
+        ? (profileData.expectativa_salarial && profileData.expectativa_salarial !== 'Menos de $10'
+            ? profileData.expectativa_salarial
+            : 'Menos de $10000')
+        : sessionSalary,
+      documentacion: corruptDocs
+        ? (profileData.documentacion && profileData.documentacion !== '000'
+            ? profileData.documentacion
+            : 'Si completa')
+        : sessionDocs,
+      last_vacancies: (data && data.last_vacancies) || [],
+    };
+
+    if (
+      normalized === '1' ||
+      normalized.includes('vacante') ||
+      normalized.includes('trabajo') ||
+      normalized.includes('empleo')
+    ) {
+      shouldUpsertCandidate = true;
+      shouldSearchVacancies = true;
+      candidateStatus = 'registered';
+
+      reply = `Perfecto 👍
+Estoy buscando vacantes compatibles con tu perfil...`;
+
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    if (
+      normalized === '2' ||
+      normalized.includes('actualizar') ||
+      normalized.includes('editar') ||
+      normalized.includes('corregir')
+    ) {
+      data = {};
+
+      reply = `De acuerdo 👍
+Vamos a actualizar tu perfil desde el inicio.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+
+      nextStep = 'esperando_nombre';
+      break;
+    }
+
+    if (
+      normalized === '3' ||
+      normalized.includes('reclutador') ||
+      normalized.includes('contacto') ||
+      normalized.includes('asesor')
+    ) {
+      data = {
+        ...profileToData(candidateProfile),
+        last_vacancies: data.last_vacancies || [],
+      };
+
+      shouldUpsertCandidate = true;
+      candidateStatus = 'interested';
+      notifyRecruiter = true;
+
+      reply = `Perfecto 👍
+
+En breve te contactará uno de nuestros reclutadores.`;
+
+      nextStep = 'contacto_reclutador';
+      break;
+    }
+
+    reply = buildExistingProfileMenu(data);
+    nextStep = 'menu_candidato_existente';
+    break;
+  }
+
+  case 'esperando_inicio':
+    if (candidateExists) {
+      data = {
+        ...profileToData(candidateProfile),
+        last_vacancies: data.last_vacancies || [],
+      };
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    if (!isYes(normalized)) {
+      reply = 'Para comenzar, responde: Sí, comenzar ✅';
+      break;
+    }
+
+    reply = `Excelente 👍
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+    nextStep = 'esperando_nombre';
+    break;
+
+  case 'esperando_nombre':
+    if (text.length < 5) {
+      reply = 'Por favor escribe tu nombre completo. Ejemplo: Juan Pérez García';
+      break;
+    }
+
+    data.nombre_completo = text;
+    reply = `Mucho gusto, ${firstName(text)} 😊
+
+¿Cuántos años tienes?
+
+Ejemplo:
+25`;
+    nextStep = 'esperando_edad';
+    break;
+
+  case 'esperando_edad': {
+    const edad = Number(text.replace(/\D/g, ''));
+
+    if (!Number.isInteger(edad) || edad < 18 || edad > 65) {
+      reply = 'Por favor escribe una edad válida entre 18 y 65 años. Ejemplo: 25';
+      break;
+    }
+
+    data.edad = edad;
+    reply = `Perfecto.
+
+¿En qué colonia, municipio o ciudad vives?
+
+Ejemplo:
+• Ecatepec
+• Iztapalapa
+• Nezahualcóyotl
+• Guadalajara Centro`;
+    nextStep = 'esperando_ubicacion';
+    break;
+  }
+
+  case 'esperando_ubicacion':
+    if (text.length < 3) {
+      reply = 'Por favor escribe tu colonia, municipio o ciudad.';
+      break;
+    }
+
+    data.ubicacion = text;
+    reply = `Ahora cuéntame un poco de tu experiencia.
+
+¿Cuál fue tu último trabajo?
+
+Ejemplos:
+• Guardia de seguridad
+• Auxiliar de almacén
+• Chofer repartidor
+• Cajero`;
+    nextStep = 'esperando_ultimo_empleo';
+    break;
+
+  case 'esperando_ultimo_empleo':
+    if (text.length < 3) {
+      reply = 'Por favor escribe cuál fue tu último trabajo.';
+      break;
+    }
+
+    data.ultimo_empleo = text;
+    reply = `¿Y qué tipo de trabajo te gustaría encontrar?
+
+Responde con el número o escribe el puesto:
+
+` + formatJobTitlesList() + `
+
+Si no está en la lista, escríbelo con tus palabras.`;
+    nextStep = 'esperando_puesto_buscado';
+    break;
+
+  case 'esperando_puesto_buscado': {
+    const puesto = resolvePuestoBuscado(text, normalized);
+    if (!puesto || puesto.length < 2) {
+      reply = `Elige un número de la lista o escribe el puesto que buscas:
+
+` + formatJobTitlesList();
+      break;
+    }
+
+    data.puesto_buscado = puesto;
+    reply = `¿Cuánta experiencia tienes en ese tipo de trabajo?
+
+1️⃣ Menos de 1 año
+2️⃣ 1 a 2 años
+3️⃣ 3 a 5 años
+4️⃣ Más de 5 años`;
+    nextStep = 'esperando_experiencia';
+    break;
+  }
+
+  case 'esperando_experiencia': {
+    const experiencia = parseExperiencia(normalized);
+
+    if (!experiencia) {
+      reply = `Responde con una opción válida:
+
+1️⃣ Menos de 1 año
+2️⃣ 1 a 2 años
+3️⃣ 3 a 5 años
+4️⃣ Más de 5 años`;
+      break;
+    }
+
+    data.experiencia = experiencia;
+    reply = `Si encontramos una vacante para ti...
+
+¿Cuándo podrías comenzar?
+
+1️⃣ Inmediatamente
+2️⃣ Esta semana
+3️⃣ En 15 días
+4️⃣ En un mes`;
+    nextStep = 'esperando_disponibilidad';
+    break;
+  }
+
+  case 'esperando_disponibilidad': {
+    const disponibilidad = parseDisponibilidad(normalized);
+
+    if (!disponibilidad) {
+      reply = `Responde con una opción válida:
+
+1️⃣ Inmediatamente
+2️⃣ Esta semana
+3️⃣ En 15 días
+4️⃣ En un mes`;
+      break;
+    }
+
+    data.disponibilidad = disponibilidad;
+    reply = `¿Qué horario prefieres?
+
+🌞 Matutino
+🌤 Vespertino
+🌙 Nocturno
+🔄 Cualquiera`;
+    nextStep = 'esperando_turno';
+    break;
+  }
+
+  case 'esperando_turno': {
+    const turno = parseTurno(normalized);
+
+    if (!turno) {
+      reply = `Responde con una opción válida:
+
+🌞 Matutino
+🌤 Vespertino
+🌙 Nocturno
+🔄 Cualquiera`;
+      break;
+    }
+
+    data.turno_preferido = turno;
+    reply = `Para ayudarte a encontrar opciones que realmente te interesen...
+
+¿Cuánto te gustaría ganar al mes?
+
+1️⃣ Menos de $10000
+2️⃣ $10000 a $15000
+3️⃣ $15000 a $20000
+4️⃣ Más de $20000`;
+    nextStep = 'esperando_expectativa_salarial';
+    break;
+  }
+
+  case 'esperando_expectativa_salarial': {
+    const salario = parseSalario(normalized);
+
+    if (!salario) {
+      reply = `Responde con una opción válida:
+
+1️⃣ Menos de $10000
+2️⃣ $10000 a $15000
+3️⃣ $15000 a $20000
+4️⃣ Más de $20000`;
+      break;
+    }
+
+    data.expectativa_salarial = salario;
+    reply = `¿Cuentas con tu documentación lista para contratación?
+
+✅ Si completa
+🟡 Me faltan algunos documentos
+❌ No la tengo completa`;
+    nextStep = 'esperando_documentacion';
+    break;
+  }
+
+  case 'esperando_documentacion': {
+    const documentacion = parseDocumentacion(normalized);
+
+    if (!documentacion) {
+      reply = `Responde con una opción válida:
+
+✅ Si completa
+🟡 Me faltan algunos documentos
+❌ No la tengo completa`;
+      break;
+    }
+
+    data.documentacion = documentacion;
+    reply = `Ya casi terminamos 🚀
+
+Compárteme tu CURP para identificar correctamente tu perfil.`;
+    nextStep = 'esperando_curp';
+    break;
+  }
+
+  case 'esperando_curp': {
+    const curp = text.toUpperCase().replace(/\s/g, '');
+
+    if (!isValidCurp(curp)) {
+      reply = 'La CURP no parece tener un formato válido. Escríbela nuevamente en mayúsculas, por favor.';
+      break;
+    }
+
+    data.curp = curp;
+    reply = buildSummary(data);
+    nextStep = 'confirmacion_resumen';
+    break;
+  }
+
+  case 'confirmacion_resumen':
+    if (isYes(normalized)) {
+      shouldUpsertCandidate = true;
+      shouldSearchVacancies = true;
+      candidateStatus = 'registered';
+
+      reply = `🎯 Listo, ${firstName(data.nombre_completo)} ya formas parte de la comunidad Jalector.
+
+Estoy buscando vacantes compatibles con tu perfil...`;
+
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    if (isCorrection(normalized)) {
+      data = {};
+      reply = `De acuerdo, vamos a corregir la información desde el inicio.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+      nextStep = 'esperando_nombre';
+      break;
+    }
+
+    reply = `Responde con una opción:
+
+✅ Sí, continuar
+✏️ Corregir información`;
+    break;
+
+  case 'esperando_interes_vacante': {
+    const selected = parseVacancySelection(normalized, data);
+    const lastVacancies = getLastVacancies(data);
+
+    if (selected) {
+      selectedVacancy = selected.vacancy;
+      selectedVacancyId = selected.vacancy.id || null;
+
+      data.selected_vacancy = {
+        id: selectedVacancy.id || null,
+        title: selectedVacancy.title || '',
+        company_name: selectedVacancy.company_name || '',
+        location: selectedVacancy.location || '',
+        selected_number: selected.selected_number,
+      };
+
+      shouldUpsertCandidate = true;
+      shouldSaveSelectedVacancy = true;
+      candidateStatus = 'interested';
+      notifyRecruiter = true;
+
+      reply = `Perfecto 👍
+
+Registré tu interés por esta vacante:
+
+${selected.selected_number}️⃣ ${selectedVacancy.title || 'Vacante seleccionada'}
+🏢 Empresa: ${selectedVacancy.company_name || 'Por confirmar'}
+📍 Zona: ${selectedVacancy.location || 'Por confirmar'}
+
+En breve te contactará uno de nuestros reclutadores.`;
+
+      nextStep = 'contacto_reclutador';
+      break;
+    }
+
+    if (isYes(normalized) || normalized.includes('interesa')) {
+      if (lastVacancies.length > 1) {
+        reply = `Perfecto 👍
+Para continuar, dime cuál vacante te interesa.
+
+Responde con el número de la vacante.
+Ejemplo: 1`;
+        nextStep = 'esperando_interes_vacante';
+        break;
+      }
+
+      if (lastVacancies.length === 1) {
+        const vacancy = lastVacancies[0];
+
+        selectedVacancy = vacancy;
+        selectedVacancyId = vacancy.id || null;
+
+        data.selected_vacancy = {
+          id: vacancy.id || null,
+          title: vacancy.title || '',
+          company_name: vacancy.company_name || '',
+          location: vacancy.location || '',
+          selected_number: 1,
+        };
+
+        shouldUpsertCandidate = true;
+        shouldSaveSelectedVacancy = true;
+        candidateStatus = 'interested';
+        notifyRecruiter = true;
+
+        reply = `Perfecto 👍
+
+Registré tu interés por esta vacante:
+
+1️⃣ ${vacancy.title || 'Vacante seleccionada'}
+🏢 Empresa: ${vacancy.company_name || 'Por confirmar'}
+📍 Zona: ${vacancy.location || 'Por confirmar'}
+
+En breve te contactará uno de nuestros reclutadores.`;
+
+        nextStep = 'contacto_reclutador';
+        break;
+      }
+
+      shouldUpsertCandidate = true;
+      shouldSearchVacancies = true;
+      candidateStatus = 'registered';
+      notifyRecruiter = false;
+
+      reply = `Claro 👍
+Voy a buscar otra vez vacantes compatibles con tu perfil...`;
+
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    if (
+      normalized.includes('ver vacantes') ||
+      normalized.includes('otra vacante') ||
+      normalized.includes('otras vacantes') ||
+      normalized.includes('buscar vacantes') ||
+      normalized === 'vacantes'
+    ) {
+      shouldUpsertCandidate = true;
+      shouldSearchVacancies = true;
+      candidateStatus = 'registered';
+
+      reply = `Claro 👍
+Estoy buscando otras vacantes compatibles con tu perfil...`;
+
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    if (isNo(normalized)) {
+      shouldUpsertCandidate = true;
+      candidateStatus = 'registered';
+
+      reply = `Entendido 👍
+
+Te compartiremos otras vacantes que se adapten mejor a tu perfil.`;
+
+      nextStep = 'registro_exitoso';
+      break;
+    }
+
+    if (lastVacancies.length > 0) {
+      reply = `Para continuar, responde con el número de la vacante que te interesa.
+
+Ejemplo: 1
+
+También puedes escribir:
+- "otras vacantes"
+- "no por ahora"
+- "reclutador"`;
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    reply = `¿Te interesa hablar con un reclutador?
+
+✅ Sí, me interesa
+❌ No por ahora`;
+    nextStep = 'esperando_interes_vacante';
+    break;
+  }
+
+  case 'registro_exitoso':
+    if (candidateExists) {
+      data = {
+        ...profileToData(candidateProfile),
+        last_vacancies: data.last_vacancies || [],
+      };
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `Tu registro ya está completo 👍
+
+Mantente atento a este WhatsApp. Aquí te compartiremos oportunidades compatibles con tu perfil.`;
+    nextStep = 'registro_exitoso';
+    break;
+
+  case 'contacto_reclutador':
+    if (candidateExists) {
+      data = {
+        ...profileToData(candidateProfile),
+        last_vacancies: data.last_vacancies || [],
+      };
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `Tu solicitud ya fue enviada a nuestros reclutadores 👍
+
+Mantente atento a este WhatsApp.`;
+    nextStep = 'contacto_reclutador';
+    break;
+
+  default:
+    if (candidateExists) {
+      data = {
+        ...profileToData(candidateProfile),
+        last_vacancies: data.last_vacancies || [],
+      };
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `👋 ¡Hola!
+Soy Jalector 🚀
+
+Para comenzar tu registro responde:
+
+✅ Sí, comenzar`;
+    nextStep = 'esperando_inicio';
+    break;
+}
+
+return [
+  {
+    json: {
+      telefono,
+      current_step: currentStep,
+      next_step: nextStep,
+      data,
+      reply,
+
+      should_upsert_candidate: shouldUpsertCandidate,
+      should_search_vacancies: shouldSearchVacancies,
+      should_save_selected_vacancy: shouldSaveSelectedVacancy,
+
+      candidate_status: candidateStatus,
+      notify_recruiter: notifyRecruiter,
+
+      selected_vacancy_id: selectedVacancyId,
+      selected_vacancy: selectedVacancy,
+    },
+  },
+];

@@ -48,13 +48,12 @@ export const InviteMemberForm = () => {
             id="invite-role"
             name="role"
             required
-            defaultValue="recruiter"
+            defaultValue="usuario"
             disabled={pending}
             className="auth-input"
           >
-            <option value="owner">Administrador</option>
-            <option value="recruiter">Reclutador</option>
-            <option value="viewer">Observador</option>
+            <option value="admin">Administrador</option>
+            <option value="usuario">Usuario</option>
           </select>
         </label>
       </div>

@@ -1,0 +1,321 @@
+--- around 43 ---
+42:
+43:function isYes(text) {
+44:  return (
+45:    text.includes('si') ||
+46:    text.includes('comenzar') ||
+47:    text.includes('continuar') ||
+48:    text.includes('me interesa') ||
+49:    text === '1'
+50:  );
+51:}
+52:
+53:function isNo(text) {
+54:  return (
+--- around 96 ---
+95:
+96:function parseSalario(text) {
+97:  if (text.includes('1') || text.includes('menos')) return 'Menos de $10,000';
+98:  if (text.includes('2') || text.includes('10000') || text.includes('10,000')) return '$10,000 a $15,000';
+99:  if (text.includes('3') || text.includes('15000') || text.includes('15,000')) return '$15,000 a $20,000';
+100:  if (text.includes('4') || text.includes('20000') || text.includes('mas')) return 'Más de $20,000';
+101:  return null;
+102:}
+103:
+104:function parseDocumentacion(text) {
+105:  if (text.includes('si') || text.includes('completa')) return 'Sí, completa';
+106:  if (text.includes('faltan') || text.includes('algunos')) return 'Me faltan algunos documentos';
+107:  if (text.includes('no')) return 'No la tengo completa';
+--- around 104 ---
+103:
+104:function parseDocumentacion(text) {
+105:  if (text.includes('si') || text.includes('completa')) return 'Sí, completa';
+106:  if (text.includes('faltan') || text.includes('algunos')) return 'Me faltan algunos documentos';
+107:  if (text.includes('no')) return 'No la tengo completa';
+108:  return null;
+109:}
+110:
+111:
+112:const JOB_TITLES = [
+113:  'Almacenista',
+114:  'Analista de datos',
+115:  'Asistente administrativo',
+--- around 287 ---
+286:let shouldUpsertCandidate = false;
+287:let shouldSearchVacancies = false;
+288:let shouldSaveSelectedVacancy = false;
+289:
+290:let candidateStatus = 'draft';
+291:let notifyRecruiter = false;
+292:
+293:let selectedVacancy = null;
+294:let selectedVacancyId = null;
+295:
+296:const registrationSteps = new Set([
+297:  'esperando_nombre',
+298:  'esperando_edad',
+--- around 305 ---
+304:  'esperando_turno',
+305:  'esperando_expectativa_salarial',
+306:  'esperando_documentacion',
+307:  'esperando_curp',
+308:  'confirmacion_resumen'
+309:]);
+310:
+311:const shouldShowExistingProfileMenu =
+312:  candidateExists &&
+313:  (
+314:    currentStep === 'bienvenida' ||
+315:    currentStep === 'registro_exitoso' ||
+316:    currentStep === 'contacto_reclutador' ||
+--- around 306 ---
+305:  'esperando_expectativa_salarial',
+306:  'esperando_documentacion',
+307:  'esperando_curp',
+308:  'confirmacion_resumen'
+309:]);
+310:
+311:const shouldShowExistingProfileMenu =
+312:  candidateExists &&
+313:  (
+314:    currentStep === 'bienvenida' ||
+315:    currentStep === 'registro_exitoso' ||
+316:    currentStep === 'contacto_reclutador' ||
+317:    normalized === 'menu' ||
+--- around 329 ---
+328:
+329:  currentStep = 'menu_candidato_existente';
+330:}
+331:
+332:switch (currentStep) {
+333:  case 'bienvenida':
+334:    if (candidateExists) {
+335:      data = {
+336:        ...profileToData(candidateProfile),
+337:        last_vacancies: data.last_vacancies || [],
+338:      };
+339:
+340:      reply = buildExistingProfileMenu(data);
+--- around 341 ---
+340:      reply = buildExistingProfileMenu(data);
+341:      nextStep = 'menu_candidato_existente';
+342:      break;
+343:    }
+344:
+345:    reply = `👋 ¡Hola!
+346:Soy Jalector 🚀
+347:
+348:Estoy aquí para ayudarte a encontrar oportunidades de trabajo que realmente se adapten a tu experiencia.
+349:
+350:Nos tomará menos de 2 minutos.
+351:
+352:¿Comenzamos?
+--- around 358 ---
+357:
+358:  case 'menu_candidato_existente':
+359:    data = Object.keys(data || {}).length
+360:      ? data
+361:      : profileToData(candidateProfile);
+362:
+363:    if (
+364:      normalized === '1' ||
+365:      normalized.includes('vacante') ||
+366:      normalized.includes('trabajo') ||
+367:      normalized.includes('empleo')
+368:    ) {
+369:      shouldUpsertCandidate = true;
+--- around 370 ---
+369:      shouldUpsertCandidate = true;
+370:      shouldSearchVacancies = true;
+371:      candidateStatus = 'registered';
+372:
+373:      reply = `Perfecto 👍
+374:Estoy buscando vacantes compatibles con tu perfil...`;
+375:
+376:      nextStep = 'esperando_interes_vacante';
+377:      break;
+378:    }
+379:
+380:    if (
+381:      normalized === '2' ||
+--- around 423 ---
+422:    reply = buildExistingProfileMenu(data);
+423:    nextStep = 'menu_candidato_existente';
+424:    break;
+425:
+426:  case 'esperando_inicio':
+427:    if (candidateExists) {
+428:      data = {
+429:        ...profileToData(candidateProfile),
+430:        last_vacancies: data.last_vacancies || [],
+431:      };
+432:
+433:      reply = buildExistingProfileMenu(data);
+434:      nextStep = 'menu_candidato_existente';
+--- around 434 ---
+433:      reply = buildExistingProfileMenu(data);
+434:      nextStep = 'menu_candidato_existente';
+435:      break;
+436:    }
+437:
+438:    if (!isYes(normalized)) {
+439:      reply = 'Para comenzar, responde: Sí, comenzar ✅';
+440:      break;
+441:    }
+442:
+443:    reply = `Excelente 👍
+444:¿Cómo te llamas?
+445:
+--- around 616 ---
+615:4️⃣ Más de $20,000`;
+616:    nextStep = 'esperando_expectativa_salarial';
+617:    break;
+618:  }
+619:
+620:  case 'esperando_expectativa_salarial': {
+621:    const salario = parseSalario(normalized);
+622:
+623:    if (!salario) {
+624:      reply = `Responde con una opción válida:
+625:
+626:1️⃣ Menos de $10,000
+627:2️⃣ $10,000 a $15,000
+--- around 620 ---
+619:
+620:  case 'esperando_expectativa_salarial': {
+621:    const salario = parseSalario(normalized);
+622:
+623:    if (!salario) {
+624:      reply = `Responde con una opción válida:
+625:
+626:1️⃣ Menos de $10,000
+627:2️⃣ $10,000 a $15,000
+628:3️⃣ $15,000 a $20,000
+629:4️⃣ Más de $20,000`;
+630:      break;
+631:    }
+--- around 639 ---
+638:❌ No la tengo completa`;
+639:    nextStep = 'esperando_documentacion';
+640:    break;
+641:  }
+642:
+643:  case 'esperando_documentacion': {
+644:    const documentacion = parseDocumentacion(normalized);
+645:
+646:    if (!documentacion) {
+647:      reply = `Responde con una opción válida:
+648:
+649:✅ Sí, completa
+650:🟡 Me faltan algunos documentos
+--- around 643 ---
+642:
+643:  case 'esperando_documentacion': {
+644:    const documentacion = parseDocumentacion(normalized);
+645:
+646:    if (!documentacion) {
+647:      reply = `Responde con una opción válida:
+648:
+649:✅ Sí, completa
+650:🟡 Me faltan algunos documentos
+651:❌ No la tengo completa`;
+652:      break;
+653:    }
+654:
+--- around 680 ---
+679:      shouldUpsertCandidate = true;
+680:      shouldSearchVacancies = true;
+681:      candidateStatus = 'registered';
+682:
+683:      reply = `🎯 Listo, ${firstName(data.nombre_completo)} ya formas parte de la comunidad Jalector.
+684:
+685:Estoy buscando vacantes compatibles con tu perfil...`;
+686:
+687:      nextStep = 'esperando_interes_vacante';
+688:      break;
+689:    }
+690:
+691:    if (isCorrection(normalized)) {
+--- around 788 ---
+787:      shouldUpsertCandidate = true;
+788:      shouldSearchVacancies = true;
+789:      candidateStatus = 'registered';
+790:      notifyRecruiter = false;
+791:
+792:      reply = `Claro 👍
+793:Voy a buscar otra vez vacantes compatibles con tu perfil...`;
+794:
+795:      nextStep = 'esperando_interes_vacante';
+796:      break;
+797:    }
+798:
+799:    if (
+--- around 807 ---
+806:      shouldUpsertCandidate = true;
+807:      shouldSearchVacancies = true;
+808:      candidateStatus = 'registered';
+809:
+810:      reply = `Claro 👍
+811:Estoy buscando otras vacantes compatibles con tu perfil...`;
+812:
+813:      nextStep = 'esperando_interes_vacante';
+814:      break;
+815:    }
+816:
+817:    if (isNo(normalized)) {
+818:      shouldUpsertCandidate = true;
+--- around 858 ---
+857:      reply = buildExistingProfileMenu(data);
+858:      nextStep = 'menu_candidato_existente';
+859:      break;
+860:    }
+861:
+862:    reply = `Tu registro ya está completo 👍
+863:
+864:Mantente atento a este WhatsApp. Aquí te compartiremos oportunidades compatibles con tu perfil.`;
+865:    nextStep = 'registro_exitoso';
+866:    break;
+867:
+868:  case 'contacto_reclutador':
+869:    if (candidateExists) {
+--- around 876 ---
+875:      reply = buildExistingProfileMenu(data);
+876:      nextStep = 'menu_candidato_existente';
+877:      break;
+878:    }
+879:
+880:    reply = `Tu solicitud ya fue enviada a nuestros reclutadores 👍
+881:
+882:Mantente atento a este WhatsApp.`;
+883:    nextStep = 'contacto_reclutador';
+884:    break;
+885:
+886:  default:
+887:    if (candidateExists) {
+--- around 894 ---
+893:      reply = buildExistingProfileMenu(data);
+894:      nextStep = 'menu_candidato_existente';
+895:      break;
+896:    }
+897:
+898:    reply = `👋 ¡Hola!
+899:Soy Jalector 🚀
+900:
+901:Para comenzar tu registro responde:
+902:
+903:✅ Sí, comenzar`;
+904:    nextStep = 'esperando_inicio';
+905:    break;
+--- around 918 ---
+917:      should_upsert_candidate: shouldUpsertCandidate,
+918:      should_search_vacancies: shouldSearchVacancies,
+919:      should_save_selected_vacancy: shouldSaveSelectedVacancy,
+920:
+921:      candidate_status: candidateStatus,
+922:      notify_recruiter: notifyRecruiter,
+923:
+924:      selected_vacancy_id: selectedVacancyId,
+925:      selected_vacancy: selectedVacancy,
+926:    },
+927:  },
+928:];

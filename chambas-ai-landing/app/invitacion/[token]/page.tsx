@@ -65,9 +65,8 @@ const InvitationPage = async ({ params }: InvitationPageProps) => {
     .maybeSingle();
   const companyName = companyRow?.name ?? "tu empresa";
   const roleLabels: Record<string, string> = {
-    owner: "Administrador",
-    recruiter: "Reclutador",
-    viewer: "Observador",
+    admin: "Administrador",
+    usuario: "Usuario",
   };
 
   if (alreadyAccepted || expired) {

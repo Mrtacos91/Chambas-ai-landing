@@ -1,4 +1,10 @@
-export type { UserType, CompanyRole, SignupStatus } from "@/types/database";
+export type {
+  UserType,
+  CompanyRole,
+  SignupStatus,
+  ActivationSource,
+  ActivationStatus,
+} from "@/types/database";
 
 export type AuthEventType =
   | "otp_requested"
@@ -8,6 +14,8 @@ export type AuthEventType =
   | "login_failed"
   | "logout"
   | "signup_submitted"
+  | "account_created"
+  | "account_activated"
   | "signup_approved"
   | "signup_rejected"
   | "invitation_sent"
@@ -18,12 +26,19 @@ export interface CurrentUser {
   email: string;
   fullName: string | null;
   avatarUrl: string | null;
-  userType: "executive" | "client";
+  userType: "usuario" | "admin";
   isActive: boolean;
 }
 
 export interface CurrentMembership {
   companyId: string;
   companyName: string;
-  role: "owner" | "recruiter" | "viewer";
+  role: "admin" | "usuario";
+  isCompanyActive: boolean;
+}
+
+export interface CompanyActivationState {
+  companyId: string;
+  companyName: string;
+  isActive: boolean;
 }

@@ -1,0 +1,37 @@
+select
+  v.id,
+  v.title,
+  v.description,
+  v.location,
+  v.schedule,
+  v.salary_min,
+  v.salary_max,
+  v.preferred_shift,
+  v.experience_required,
+  v.benefits,
+  v.requirements,
+  c.name as company_name
+from public.vacancies v
+join public.companies c on c.id = v.company_id
+where
+  v.active = true
+  and c.active = true
+  and (
+    extensions.unaccent(lower(coalesce(v.title, ''))) like '%' || extensions.unaccent(lower(coalesce($1, ''))) || '%'
+    or extensions.unaccent(lower(coalesce(v.description, ''))) like '%' || extensions.unaccent(lower(coalesce($1, ''))) || '%'
+    or extensions.unaccent(lower(coalesce(v.requirements, ''))) like '%' || extensions.unaccent(lower(coalesce($1, ''))) || '%'
+  )
+  and (
+    v.preferred_shift is null
+    or btrim(v.preferred_shift) = ''
+    or lower(v.preferred_shift) = 'cualquiera'
+    or lower(coalesce($2, '')) = 'cualquiera'
+    or lower(v.preferred_shift) = lower(coalesce($2, ''))
+  )
+order by
+  case
+    when extensions.unaccent(lower(coalesce(v.location, ''))) like '%' || extensions.unaccent(lower(coalesce($3, ''))) || '%' then 1
+    else 2
+  end,
+  v.created_at desc
+limit 3;

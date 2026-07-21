@@ -1,0 +1,14 @@
+{
+  "cerebroCodeLength": 24607,
+  "queryReplacementStart": "={{ [\n  $('Cerebro J",
+  "jsonBodyHasMarker": true,
+  "activeVersionId": "94884452-4067-4a1a-8b99-9fce779f444e",
+  "checks": {
+    "corruptSalary": "PASS",
+    "Menos de $10000": "PASS",
+    "Si completa": "PASS",
+    "optionNumber": "PASS",
+    "enviarJsonBody_ConstruirMensaje": "PASS",
+    "guardarQueryReplacement_startsWith": "PASS"
+  }
+}

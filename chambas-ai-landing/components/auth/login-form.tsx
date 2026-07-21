@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
-import { requestOtp, signInWithGoogle } from "@/lib/auth/actions";
+import { signInWithGoogle, signInWithPassword } from "@/lib/auth/actions";
 
 interface LoginFormProps {
   redirect?: string;
@@ -19,17 +19,17 @@ export const LoginForm = ({ redirect }: LoginFormProps) => {
   const handleSubmit = (formData: FormData) => {
     setError(null);
     setFieldErrors({});
+    if (redirect) formData.set("redirect", redirect);
+
     startTransition(async () => {
-      const result = await requestOtp(formData);
+      const result = await signInWithPassword(formData);
       if (!result.ok) {
-        if (result.fieldErrors) setFieldErrors(result.fieldErrors as Record<string, string>);
+        if (result.fieldErrors) setFieldErrors(result.fieldErrors);
         if (result.error) setError(result.error);
         return;
       }
-      const email = (result.data as { email: string }).email;
-      const params = new URLSearchParams({ email });
-      if (redirect) params.set("redirect", redirect);
-      router.push(`/verify?${params.toString()}`);
+      const target = (result.data as { redirect?: string }).redirect ?? "/cliente";
+      router.push(target);
     });
   };
 
@@ -77,9 +77,26 @@ export const LoginForm = ({ redirect }: LoginFormProps) => {
         </label>
         {fieldErrors.email ? <p className="auth-field-error">{fieldErrors.email}</p> : null}
 
+        <label className="auth-label" htmlFor="password">
+          Contraseña
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            placeholder="Tu contraseña"
+            className="auth-input"
+            disabled={pending}
+          />
+        </label>
+        {fieldErrors.password ? (
+          <p className="auth-field-error">{fieldErrors.password}</p>
+        ) : null}
+
         <button type="submit" disabled={pending || googlePending} className="auth-primary-button">
           {pending ? <Loader2 size={16} className="auth-spinner" /> : null}
-          Enviar código
+          Iniciar sesión
           {!pending ? <ArrowRight size={16} /> : null}
         </button>
         {error ? <p className="auth-error">{error}</p> : null}

@@ -1,0 +1,24 @@
+{
+  "conditions": {
+    "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 3
+    },
+    "conditions": [
+      {
+        "id": "65554db7-9075-4da5-9a37-82c334830453",
+        "leftValue": "={{ $('Cerebro Jalector').item.json.should_search_vacancies }}",
+        "rightValue": "",
+        "operator": {
+          "type": "boolean",
+          "operation": "true",
+          "singleValue": true
+        }
+      }
+    ],
+    "combinator": "and"
+  },
+  "options": {}
+}

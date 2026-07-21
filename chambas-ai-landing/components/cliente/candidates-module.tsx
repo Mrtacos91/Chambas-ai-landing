@@ -1,0 +1,491 @@
+"use client";
+
+import {
+  MessageCircle,
+  Search,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
+import {
+  updateCandidateNotes,
+  updateCandidateStage,
+} from "@/lib/candidates/actions";
+import type { CompanyHiringPipelineRow } from "@/lib/candidates/application/list-company-hiring-pipeline";
+import {
+  HIRING_PIPELINE_ORDER,
+  HIRING_STAGE_LABELS,
+  QUICK_STAGE_ACTIONS,
+  type HiringStage,
+} from "@/lib/candidates/domain/hiring-stages";
+import type { VacancyRecord } from "@/lib/vacancies/domain/vacancy";
+
+const dateFormatter = new Intl.DateTimeFormat("es-MX", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+const stageBadgeClass = (stage: HiringStage): string => {
+  switch (stage) {
+    case "nuevo":
+      return "bg-slate-100 text-slate-700";
+    case "interesado":
+      return "bg-sky-50 text-sky-800";
+    case "contactado":
+      return "bg-indigo-50 text-indigo-800";
+    case "entrevista":
+      return "bg-amber-50 text-amber-800";
+    case "oferta":
+      return "bg-violet-50 text-violet-800";
+    case "contratado":
+      return "bg-emerald-50 text-emerald-800";
+    case "descartado":
+      return "bg-rose-50 text-rose-800";
+    default:
+      return "bg-[var(--surface-soft)] text-[var(--muted)]";
+  }
+};
+
+const toWhatsAppUrl = (phone: string): string => {
+  const digits = phone.replace(/\D/g, "");
+  return `https://wa.me/${digits}`;
+};
+
+export const CandidatesModule = ({
+  candidates,
+  vacancies,
+}: {
+  candidates: CompanyHiringPipelineRow[];
+  vacancies: VacancyRecord[];
+}) => {
+  const [query, setQuery] = useState("");
+  const [vacancyFilter, setVacancyFilter] = useState("all");
+  const [stageFilter, setStageFilter] = useState<HiringStage | "all">("all");
+  const [onlyInterest, setOnlyInterest] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [rows, setRows] = useState(candidates);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRows(candidates);
+  }, [candidates]);
+
+  const stageCounts = useMemo(() => {
+    const counts = Object.fromEntries(
+      HIRING_PIPELINE_ORDER.map((stage) => [stage, 0]),
+    ) as Record<HiringStage, number>;
+    for (const row of rows) {
+      counts[row.stage] += 1;
+    }
+    return counts;
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (vacancyFilter !== "all" && row.vacancyId !== vacancyFilter) return false;
+      if (stageFilter !== "all" && row.stage !== stageFilter) return false;
+      if (onlyInterest && !row.hasInterest) return false;
+      if (!term) return true;
+      return [
+        row.nombreCompleto,
+        row.telefono,
+        row.ubicacion,
+        row.puestoBuscado,
+        row.experiencia,
+        row.vacancyTitle,
+        row.notes,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+    });
+  }, [rows, query, vacancyFilter, stageFilter, onlyInterest]);
+
+  const selected = useMemo(
+    () => rows.find((row) => row.id === selectedId) ?? null,
+    [rows, selectedId],
+  );
+
+  const closeDrawer = useCallback(() => {
+    setSelectedId(null);
+  }, []);
+
+  const changeStage = (pipelineId: string, stage: HiringStage) => {
+    setError(null);
+    const previous = rows;
+    setRows((current) =>
+      current.map((row) =>
+        row.id === pipelineId
+          ? { ...row, stage, lastActivity: new Date().toISOString() }
+          : row,
+      ),
+    );
+    startTransition(async () => {
+      const result = await updateCandidateStage({ pipelineId, stage });
+      if (!result.ok) {
+        setRows(previous);
+        setError(result.error ?? "No se pudo actualizar la etapa.");
+      }
+    });
+  };
+
+  const saveNotes = (pipelineId: string, notes: string) => {
+    setError(null);
+    const previous = rows;
+    setRows((current) =>
+      current.map((row) => (row.id === pipelineId ? { ...row, notes } : row)),
+    );
+    startTransition(async () => {
+      const result = await updateCandidateNotes({ pipelineId, notes });
+      if (!result.ok) {
+        setRows(previous);
+        setError(result.error ?? "No se pudo guardar la nota.");
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--brand-green)]">
+            Candidatos
+          </p>
+          <h2 className="mt-1 font-display text-2xl font-bold">CRM de contratación</h2>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
+            Embudo por vacante: contacta, avanza etapas y contrata desde un solo lugar.
+          </p>
+        </div>
+        <label className="flex min-h-11 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 text-sm text-[var(--muted)] shadow-sm backdrop-blur-xl">
+          <Search size={16} className="shrink-0" />
+          <input
+            className="w-full min-w-0 bg-transparent text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] sm:w-52"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar candidato"
+            value={query}
+          />
+        </label>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        <button
+          className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+            stageFilter === "all"
+              ? "border-[var(--brand-green)] bg-[var(--brand-green)] text-white"
+              : "border-[var(--line)] bg-[var(--surface)] text-[var(--muted)]"
+          }`}
+          onClick={() => setStageFilter("all")}
+          type="button"
+        >
+          Todos ({rows.length})
+        </button>
+        {HIRING_PIPELINE_ORDER.map((stage) => (
+          <button
+            className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+              stageFilter === stage
+                ? "border-[var(--brand-green)] bg-[var(--brand-green)] text-white"
+                : "border-[var(--line)] bg-[var(--surface)] text-[var(--muted)]"
+            }`}
+            key={stage}
+            onClick={() => setStageFilter(stage)}
+            type="button"
+          >
+            {HIRING_STAGE_LABELS[stage]} ({stageCounts[stage]})
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex min-h-11 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 text-sm text-[var(--foreground)]">
+          <span className="text-[var(--muted)]">Vacante</span>
+          <select
+            className="theme-select-inline max-w-[14rem]"
+            onChange={(event) => setVacancyFilter(event.target.value)}
+            value={vacancyFilter}
+          >
+            <option value="all">Todas</option>
+            {vacancies.map((vacancy) => (
+              <option key={vacancy.id} value={vacancy.id}>
+                {vacancy.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 text-sm">
+          <input
+            checked={onlyInterest}
+            className="accent-[var(--brand-green)]"
+            onChange={(event) => setOnlyInterest(event.target.checked)}
+            type="checkbox"
+          />
+          Solo con interés
+        </label>
+        {pending ? (
+          <span className="text-xs text-[var(--muted)]">Guardando...</span>
+        ) : null}
+        {error ? <span className="text-xs text-rose-600">{error}</span> : null}
+      </div>
+
+      {vacancies.length === 0 ? (
+        <div className="executive-card rounded-[22px] border border-dashed border-[var(--line)] bg-[var(--surface-soft)] p-8 text-center">
+          <p className="font-semibold">Publica una vacante primero</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            El CRM se llena cuando el chatbot muestra o selecciona tus vacantes.
+          </p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="executive-card rounded-[22px] border border-dashed border-[var(--line)] bg-[var(--surface-soft)] p-8 text-center">
+          <p className="font-semibold">Sin candidatos con estos filtros</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Cuando el chatbot muestre o seleccione tus vacantes, aparecerán aquí.
+          </p>
+        </div>
+      ) : (
+        <div className="executive-card overflow-hidden rounded-[22px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-[var(--line)] bg-[var(--surface-soft)] text-xs uppercase tracking-wide text-[var(--muted)]">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Candidato</th>
+                  <th className="px-4 py-3 font-semibold">Vacante</th>
+                  <th className="px-4 py-3 font-semibold">Interés</th>
+                  <th className="px-4 py-3 font-semibold">Etapa</th>
+                  <th className="px-4 py-3 font-semibold">Perfil</th>
+                  <th className="px-4 py-3 font-semibold">Actividad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((row) => (
+                  <tr
+                    className="cursor-pointer border-b border-[var(--line)] last:border-0 hover:bg-[var(--surface-soft)]"
+                    key={row.id}
+                    onClick={() => setSelectedId(row.id)}
+                  >
+                    <td className="px-4 py-4 align-top">
+                      <p className="font-semibold">
+                        {row.nombreCompleto?.trim() || "Sin nombre"}
+                      </p>
+                      <p className="mt-1 text-[var(--muted)]">{row.telefono}</p>
+                      {row.ubicacion ? (
+                        <p className="mt-1 text-xs text-[var(--muted)]">{row.ubicacion}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-4 align-top">{row.vacancyTitle}</td>
+                    <td className="px-4 py-4 align-top">
+                      {row.hasInterest ? (
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                          Sí
+                        </span>
+                      ) : (
+                        <span className="text-[var(--muted)]">Match</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${stageBadgeClass(row.stage)}`}
+                      >
+                        {HIRING_STAGE_LABELS[row.stage]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <p>{row.puestoBuscado || "Sin puesto"}</p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        {row.completeness}% completo
+                      </p>
+                    </td>
+                    <td className="px-4 py-4 align-top text-[var(--muted)]">
+                      {row.lastActivity
+                        ? dateFormatter.format(new Date(row.lastActivity))
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {selected ? (
+        <CandidateDrawer
+          onClose={closeDrawer}
+          onSaveNotes={saveNotes}
+          onStageChange={changeStage}
+          pending={pending}
+          row={selected}
+        />
+      ) : null}
+    </div>
+  );
+};
+
+const CandidateDrawer = ({
+  row,
+  pending,
+  onClose,
+  onStageChange,
+  onSaveNotes,
+}: {
+  row: CompanyHiringPipelineRow;
+  pending: boolean;
+  onClose: () => void;
+  onStageChange: (pipelineId: string, stage: HiringStage) => void;
+  onSaveNotes: (pipelineId: string, notes: string) => void;
+}) => {
+  const [notes, setNotes] = useState(row.notes);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setNotes(row.notes);
+  }, [row.id, row.notes]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex justify-end bg-black/35 p-0 sm:p-4">
+      <button
+        aria-label="Cerrar ficha"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+        type="button"
+      />
+      <aside className="relative z-10 flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-[var(--line)] bg-[var(--surface)] shadow-2xl sm:rounded-[22px] sm:border">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] p-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--brand-green)]">
+              Ficha CRM
+            </p>
+            <h3 className="mt-1 font-display text-2xl font-bold">
+              {row.nombreCompleto?.trim() || "Sin nombre"}
+            </h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">{row.vacancyTitle}</p>
+          </div>
+          <button
+            className="rounded-full border border-[var(--line)] p-2 text-[var(--muted)]"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5">
+          <div className="flex flex-wrap gap-2">
+            <a
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--brand-green)] px-4 text-sm font-semibold text-white"
+              href={toWhatsAppUrl(row.telefono)}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <MessageCircle size={16} />
+              WhatsApp
+            </a>
+            {QUICK_STAGE_ACTIONS.map((action) => (
+              <button
+                className="inline-flex min-h-11 items-center rounded-full border border-[var(--line)] bg-[var(--surface-soft)] px-4 text-sm font-semibold disabled:opacity-60"
+                disabled={pending || row.stage === action.stage}
+                key={action.stage}
+                onClick={() => onStageChange(row.id, action.stage)}
+                type="button"
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+
+          <label className="block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+              Etapa
+            </span>
+            <select
+              className="theme-select min-h-11 w-full rounded-2xl px-4 text-sm"
+              disabled={pending}
+              onChange={(event) =>
+                onStageChange(row.id, event.target.value as HiringStage)
+              }
+              value={row.stage}
+            >
+              {HIRING_PIPELINE_ORDER.map((stage) => (
+                <option key={stage} value={stage}>
+                  {HIRING_STAGE_LABELS[stage]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <InfoItem label="Teléfono" value={row.telefono} />
+            <InfoItem label="Edad" value={row.edad != null ? String(row.edad) : null} />
+            <InfoItem label="Zona" value={row.ubicacion} />
+            <InfoItem label="Puesto buscado" value={row.puestoBuscado} />
+            <InfoItem label="Último empleo" value={row.ultimoEmpleo} />
+            <InfoItem label="Experiencia" value={row.experiencia} />
+            <InfoItem label="Disponibilidad" value={row.disponibilidad} />
+            <InfoItem label="Turno" value={row.turnoPreferido} />
+            <InfoItem label="Expectativa salarial" value={row.expectativaSalarial} />
+            <InfoItem label="Documentación" value={row.documentacion} />
+            <InfoItem
+              label="Interés en vacante"
+              value={row.hasInterest ? "Sí" : "Solo match"}
+            />
+            <InfoItem label="Perfil" value={`${row.completeness}% completo`} />
+          </dl>
+
+          <label className="block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+              Notas internas
+            </span>
+            <textarea
+              className="min-h-28 w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-soft)] px-4 py-3 text-sm outline-none"
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Ej. Disponible mañana, pedir INE, buen perfil para turno matutino..."
+              value={notes}
+            />
+            <button
+              className="inline-flex min-h-11 items-center rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold disabled:opacity-60"
+              disabled={pending || notes === row.notes}
+              onClick={() => onSaveNotes(row.id, notes)}
+              type="button"
+            >
+              Guardar nota
+            </button>
+          </label>
+        </div>
+      </aside>
+    </div>,
+    document.body,
+  );
+};
+
+const InfoItem = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null | undefined;
+}) => (
+  <div className="rounded-2xl bg-[var(--surface-soft)] px-3 py-2">
+    <dt className="text-xs text-[var(--muted)]">{label}</dt>
+    <dd className="mt-1 font-medium">{value?.trim() || "—"}</dd>
+  </div>
+);

@@ -1,0 +1,11 @@
+{
+  "name": "Guardar candidato",
+  "type": "n8n-nodes-base.postgres",
+  "parameters": {
+    "operation": "executeQuery",
+    "query": "insert into public.candidates (\n  telefono,\n  nombre_completo,\n  edad,\n  ubicacion,\n  ultimo_empleo,\n  puesto_buscado,\n  experiencia,\n  disponibilidad,\n  turno_preferido,\n  expectativa_salarial,\n  documentacion,\n  curp,\n  source,\n  campaign,\n  medium,\n  status\n)\nvalues (\n  $1,\n  $2,\n  $3::int,\n  $4,\n  $5,\n  $6,\n  $7,\n  $8,\n  $9,\n  $10,\n  $11,\n  $12,\n  'whatsapp',\n  'organic',\n  'whatsapp',\n  $13\n)\non conflict (telefono) do update set\n  nombre_completo = excluded.nombre_completo,\n  edad = excluded.edad,\n  ubicacion = excluded.ubicacion,\n  ultimo_empleo = excluded.ultimo_empleo,\n  puesto_buscado = excluded.puesto_buscado,\n  experiencia = excluded.experiencia,\n  disponibilidad = excluded.disponibilidad,\n  turno_preferido = excluded.turno_preferido,\n  expectativa_salarial = excluded.expectativa_salarial,\n  documentacion = excluded.documentacion,\n  curp = excluded.curp,\n  status = excluded.status,\n  updated_at = now()\nreturning *;",
+    "options": {
+      "queryReplacement": "=1: {{$node[\"Cerebro Jalector\"].json.telefono}} 2: {{$node[\"Cerebro Jalector\"].json.data.nombre_completo}} 3: {{$node[\"Cerebro Jalector\"].json.data.edad}} 4: {{$node[\"Cerebro Jalector\"].json.data.ubicacion}} 5: {{$node[\"Cerebro Jalector\"].json.data.ultimo_empleo}} 6: {{$node[\"Cerebro Jalector\"].json.data.puesto_buscado}} 7: {{$node[\"Cerebro Jalector\"].json.data.experiencia}} 8: {{$node[\"Cerebro Jalector\"].json.data.disponibilidad}} 9: {{$node[\"Cerebro Jalector\"].json.data.turno_preferido}} 10: {{$node[\"Cerebro Jalector\"].json.data.expectativa_salarial}} 11: {{$node[\"Cerebro Jalector\"].json.data.documentacion}} 12: {{$node[\"Cerebro Jalector\"].json.data.curp}} 13: {{$node[\"Cerebro Jalector\"].json.candidate_status}}"
+    }
+  }
+}

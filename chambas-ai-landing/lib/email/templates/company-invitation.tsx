@@ -14,14 +14,13 @@ import {
 interface CompanyInvitationEmailProps {
   companyName: string;
   inviterName: string;
-  role: "owner" | "recruiter" | "viewer";
+  role: "admin" | "usuario";
   acceptUrl: string;
 }
 
 const roleLabels: Record<CompanyInvitationEmailProps["role"], string> = {
-  owner: "Administrador",
-  recruiter: "Reclutador",
-  viewer: "Observador",
+  admin: "Administrador",
+  usuario: "Usuario",
 };
 
 export const CompanyInvitationEmail = ({

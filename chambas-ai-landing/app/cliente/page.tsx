@@ -1,125 +1,100 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Building2, MessageCircle, Users } from "lucide-react";
 import { requireClient } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
-import { DashboardHeader } from "@/components/ui/dashboard-header";
+import { createClient as createAdminClient } from "@/lib/supabase/admin";
+import { listCompanyHiringPipeline } from "@/lib/candidates/application/list-company-hiring-pipeline";
+import { listCompanyVacancies } from "@/lib/vacancies/application/manage-vacancies";
+import {
+  ClientDashboard,
+  type ClientModule,
+} from "@/app/cliente/client-dashboard";
 
 export const metadata: Metadata = {
   title: "Panel de tu empresa",
-  description: "Tablero principal con candidatos capturados por el chatbot.",
+  description: "Publica vacantes y revisa candidatos capturados por el chatbot.",
   robots: { index: false, follow: false },
 };
 
-const ClientePage = async () => {
+const MODULES: ClientModule[] = ["inicio", "vacantes", "candidatos", "equipo"];
+
+const ClientePage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<{ modulo?: string }>;
+}) => {
   const { user, membership } = await requireClient();
+  const params = await searchParams;
+  const initialModule = MODULES.includes(params.modulo as ClientModule)
+    ? (params.modulo as ClientModule)
+    : "inicio";
+
   const supabase = await createClient();
+  const admin = createAdminClient();
 
-  const { data: vacancies } = await supabase
-    .from("vacancies")
-    .select("id, title, active, created_at")
-    .eq("company_id", membership.companyId)
-    .order("created_at", { ascending: false })
-    .limit(5);
+  const [vacancies, pipeline, membersResult, invitationsResult] = await Promise.all([
+    listCompanyVacancies(supabase, membership.companyId),
+    listCompanyHiringPipeline(supabase, membership.companyId),
+    supabase
+      .from("company_users")
+      .select("id, user_id, role, created_at")
+      .eq("company_id", membership.companyId)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("company_invitations")
+      .select("id, email, role, expires_at")
+      .eq("company_id", membership.companyId)
+      .is("accepted_at", null)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  const { count: vacancyCount } = await supabase
-    .from("vacancies")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", membership.companyId);
+  const members = membersResult.data ?? [];
+  const memberIds = members.map((row) => row.user_id);
+  const { data: profiles } = memberIds.length
+    ? await admin.from("user_profiles").select("id, email, full_name").in("id", memberIds)
+    : { data: [] };
 
-  const { count: teamCount } = await supabase
-    .from("company_users")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", membership.companyId);
+  const profileById = new Map(
+    (profiles ?? []).map((row) => [row.id, { email: row.email, fullName: row.full_name }]),
+  );
 
-  const { count: pendingInvites } = await supabase
-    .from("company_invitations")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", membership.companyId)
-    .is("accepted_at", null);
+  const uniquePhones = new Set(pipeline.map((row) => row.telefono));
+  const interestCount = pipeline.filter((row) => row.hasInterest).length;
 
   return (
-    <main className="dashboard-main">
-      <DashboardHeader
-        user={{ email: user.email, fullName: user.fullName }}
-        subtitle={membership.companyName}
-        nav={
-          <>
-            <Link href="/cliente" className="dashboard-nav-link is-active">
-              Inicio
-            </Link>
-            <Link href="/cliente/equipo" className="dashboard-nav-link">
-              Equipo
-            </Link>
-          </>
-        }
-      />
-
-      <section className="dashboard-section">
-        <div className="dashboard-section-head">
-          <div>
-            <p className="dashboard-eyebrow">Bienvenida</p>
-            <h1 className="dashboard-title">Hola, {user.fullName ?? user.email}</h1>
-            <p className="dashboard-subtitle">
-              Este es el inicio del panel de {membership.companyName}. Desde aquí
-              gestionarás candidatos capturados por el chatbot y configurarás tu
-              equipo de talento.
-            </p>
-          </div>
-          <span className="dashboard-pill">Rol: {membership.role}</span>
-        </div>
-
-        <div className="dashboard-grid">
-          <article className="dashboard-card">
-            <Building2 size={20} className="dashboard-card-icon" />
-            <p className="dashboard-card-label">Vacantes activas</p>
-            <p className="dashboard-card-value">{vacancyCount ?? 0}</p>
-            <p className="dashboard-card-help">
-              {(vacancies ?? []).length === 0
-                ? "Aún no tienes vacantes. En la próxima entrega podrás crearlas desde el panel."
-                : "Últimas vacantes registradas para tu empresa."}
-            </p>
-          </article>
-
-          <article className="dashboard-card">
-            <Users size={20} className="dashboard-card-icon" />
-            <p className="dashboard-card-label">Miembros del equipo</p>
-            <p className="dashboard-card-value">{teamCount ?? 0}</p>
-            <p className="dashboard-card-help">
-              {pendingInvites && pendingInvites > 0
-                ? `${pendingInvites} invitaciones pendientes de aceptación.`
-                : "Invita a más miembros desde la sección de equipo."}
-            </p>
-          </article>
-
-          <article className="dashboard-card">
-            <MessageCircle size={20} className="dashboard-card-icon" />
-            <p className="dashboard-card-label">Captación por WhatsApp</p>
-            <p className="dashboard-card-value">Activa</p>
-            <p className="dashboard-card-help">
-              El chatbot está listo. En la próxima fase conectaremos tu número de
-              WhatsApp Business y publicaremos tus QR de captación.
-            </p>
-          </article>
-        </div>
-
-        {vacancies && vacancies.length > 0 ? (
-          <div className="dashboard-list">
-            <h2 className="dashboard-subtitle-strong">Vacantes recientes</h2>
-            <ul>
-              {vacancies.map((vacancy) => (
-                <li key={vacancy.id}>
-                  <span>{vacancy.title}</span>
-                  <span className={`dashboard-tag ${vacancy.active ? "is-active" : ""}`}>
-                    {vacancy.active ? "Activa" : "Pausada"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </section>
-    </main>
+    <ClientDashboard
+      canManageVacancies={membership.role === "admin"}
+      candidates={pipeline}
+      companyName={membership.companyName}
+      initialModule={initialModule}
+      invitations={(invitationsResult.data ?? []).map((row) => ({
+        id: row.id,
+        email: row.email,
+        role: row.role,
+        expiresAt: row.expires_at,
+      }))}
+      members={members.map((member) => {
+        const profile = profileById.get(member.user_id);
+        return {
+          id: member.id,
+          role: member.role,
+          createdAt: member.created_at,
+          fullName: profile?.fullName ?? null,
+          email: profile?.email ?? null,
+        };
+      })}
+      stats={{
+        activeVacancies: vacancies.filter((row) => row.active).length,
+        candidateCount: uniquePhones.size,
+        interestCount,
+        teamCount: members.length,
+      }}
+      user={{
+        email: user.email,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
+      }}
+      vacancies={vacancies}
+    />
   );
 };
 

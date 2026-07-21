@@ -1,0 +1,35 @@
+227:   if (!data || !data.last_vacancies) return [];
+229:   if (Array.isArray(data.last_vacancies)) {
+230:     return data.last_vacancies;
+233:   if (typeof data.last_vacancies === 'string') {
+234:     return safeJsonParse(data.last_vacancies, []);
+273: let shouldSearchVacancies = false;
+294:   'confirmacion_resumen'
+302:     currentStep === 'contacto_reclutador' ||
+312:     last_vacancies: data.last_vacancies || [],
+323:         last_vacancies: data.last_vacancies || [],
+356:       shouldSearchVacancies = true;
+362:       nextStep = 'esperando_interes_vacante';
+393:         last_vacancies: data.last_vacancies || [],
+404:       nextStep = 'contacto_reclutador';
+416:         last_vacancies: data.last_vacancies || [],
+659:     nextStep = 'confirmacion_resumen';
+663:   case 'confirmacion_resumen':
+666:       shouldSearchVacancies = true;
+673:       nextStep = 'esperando_interes_vacante';
+694:   case 'esperando_interes_vacante': {
+725:       nextStep = 'contacto_reclutador';
+736:         nextStep = 'esperando_interes_vacante';
+769:         nextStep = 'contacto_reclutador';
+781:       nextStep = 'contacto_reclutador';
+789:       normalized.includes('buscar vacantes') ||
+793:       shouldSearchVacancies = true;
+799:       nextStep = 'esperando_interes_vacante';
+824:       nextStep = 'esperando_interes_vacante';
+832:     nextStep = 'esperando_interes_vacante';
+840:         last_vacancies: data.last_vacancies || [],
+854:   case 'contacto_reclutador':
+858:         last_vacancies: data.last_vacancies || [],
+869:     nextStep = 'contacto_reclutador';
+876:         last_vacancies: data.last_vacancies || [],
+904:       should_search_vacancies: shouldSearchVacancies,

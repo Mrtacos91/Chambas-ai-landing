@@ -1,0 +1,98 @@
+{
+  "Guardar candidato": {
+    "operation": "executeQuery",
+    "options": {
+      "queryReplacement": "={{ [\n  $('Cerebro Jalector').item.json.telefono,\n  $('Cerebro Jalector').item.json.data.nombre_completo,\n  $('Cerebro Jalector').item.json.data.edad,\n  $('Cerebro Jalector').item.json.data.ubicacion,\n  $('Cerebro Jalector').item.json.data.ultimo_empleo,\n  $('Cerebro Jalector').item.json.data.puesto_buscado,\n  $('Cerebro Jalector').item.json.data.experiencia,\n  $('Cerebro Jalector').item.json.data.disponibilidad,\n  $('Cerebro Jalector').item.json.data.turno_preferido,\n  $('Cerebro Jalector').item.json.data.expectativa_salarial,\n  $('Cerebro Jalector').item.json.data.documentacion,\n  $('Cerebro Jalector').item.json.data.curp,\n  $('Cerebro Jalector').item.json.candidate_status\n] }}"
+    },
+    "query": "insert into public.candidates (\n  telefono,\n  nombre_completo,\n  edad,\n  ubicacion,\n  ultimo_empleo,\n  puesto_buscado,\n  experiencia,\n  disponibilidad,\n  turno_preferido,\n  expectativa_salarial,\n  documentacion,\n  curp,\n  source,\n  campaign,\n  medium,\n  status\n)\nvalues (\n  $1,\n  $2,\n  nullif($3::text, '')::int,\n  $4,\n  $5,\n  $6,\n  $7,\n  $8,\n  $9,\n  $10,\n  $11,\n  $12,\n  'whatsapp',\n  'organic',\n  'whatsapp',\n  $13\n)\non conflict (telefono) do update set\n  nombre_completo = excluded.nombre_completo,\n  edad = excluded.edad,\n  ubicacion = excluded.ubicacion,\n  ultimo_empleo = excluded.ultimo_empleo,\n  puesto_buscado = excluded.puesto_buscado,\n  experiencia = excluded.experiencia,\n  disponibilidad = excluded.disponibilidad,\n  turno_preferido = excluded.turno_preferido,\n  expectativa_salarial = excluded.expectativa_salarial,\n  documentacion = excluded.documentacion,\n  curp = excluded.curp,\n  status = excluded.status,\n  updated_at = now()\nreturning *;"
+  },
+  "¿Guardar candidato final?": {
+    "conditions": {
+      "options": {
+        "caseSensitive": true,
+        "leftValue": "",
+        "typeValidation": "strict",
+        "version": 3
+      },
+      "conditions": [
+        {
+          "id": "1c570493-714c-4fae-b36b-b80114dd2ab2",
+          "leftValue": "={{ $('Cerebro Jalector').item.json.should_upsert_candidate }}",
+          "rightValue": "is true",
+          "operator": {
+            "type": "boolean",
+            "operation": "true",
+            "singleValue": true
+          }
+        }
+      ],
+      "combinator": "or"
+    },
+    "options": {}
+  },
+  "Buscar vacantes?": {
+    "conditions": {
+      "options": {
+        "caseSensitive": true,
+        "leftValue": "",
+        "typeValidation": "strict",
+        "version": 3
+      },
+      "conditions": [
+        {
+          "id": "65554db7-9075-4da5-9a37-82c334830453",
+          "leftValue": "={{ $('Cerebro Jalector').item.json.should_search_vacancies }}",
+          "rightValue": "",
+          "operator": {
+            "type": "boolean",
+            "operation": "true",
+            "singleValue": true
+          }
+        }
+      ],
+      "combinator": "and"
+    },
+    "options": {}
+  },
+  "Buscar vacantes compatibles": {
+    "operation": "executeQuery",
+    "options": {
+      "queryReplacement": "=1: {{ $('Cerebro Jalector').item.json.data.puesto_buscado }}  2: {{ $('Cerebro Jalector').item.json.data.turno_preferido }}  3: {{ $('Cerebro Jalector').item.json.data.ubicacion }}"
+    },
+    "query": "select\n  v.id,\n  v.title,\n  v.description,\n  v.location,\n  v.schedule,\n  v.salary_min,\n  v.salary_max,\n  v.preferred_shift,\n  v.experience_required,\n  v.benefits,\n  v.requirements,\n  c.name as company_name\nfrom public.vacancies v\njoin public.companies c on c.id = v.company_id\nwhere\n  v.active = true\n  and c.active = true\n  and (\n    extensions.unaccent(lower(coalesce(v.title, ''))) like '%' || extensions.unaccent(lower(coalesce($1, ''))) || '%'\n    or extensions.unaccent(lower(coalesce(v.description, ''))) like '%' || extensions.unaccent(lower(coalesce($1, ''))) || '%'\n    or extensions.unaccent(lower(coalesce(v.requirements, ''))) like '%' || extensions.unaccent(lower(coalesce($1, ''))) || '%'\n  )\n  and (\n    v.preferred_shift is null\n    or btrim(v.preferred_shift) = ''\n    or lower(v.preferred_shift) = 'cualquiera'\n    or lower(coalesce($2, '')) = 'cualquiera'\n    or lower(v.preferred_shift) = lower(coalesce($2, ''))\n  )\norder by\n  case\n    when extensions.unaccent(lower(coalesce(v.location, ''))) like '%' || extensions.unaccent(lower(coalesce($3, ''))) || '%' then 1\n    else 2\n  end,\n  v.created_at desc\nlimit 3;"
+  },
+  "Construir mensaje de vacantes": {
+    "jsCode": "const candidato = $('Cerebro Jalector').item.json;\nconst vacantes = $input.all().map(item => item.json);\n\nconst nombre = candidato.data.nombre_completo?.split(' ')[0] || 'candidato';\n\nlet reply = '';\n\nif (vacantes.length === 0) {\n  reply = `🎯 Listo, ${nombre} ya formas parte de la comunidad Jalector.\\n\\nPor ahora no encontré una vacante exacta para tu perfil, pero ya tengo tu registro.\\n\\nMantente atento a este WhatsApp. Te avisaré cuando encontremos una oportunidad compatible.`;\n\n  return [\n    {\n      json: {\n        telefono: candidato.telefono,\n        reply,\n        found_vacancies: false,\n        vacancies: [],\n        last_vacancies: [],\n      },\n    },\n  ];\n}\n\nreply = `🎯 Listo, ${nombre} ya formas parte de la comunidad Jalector.\\n\\nEncontré estas vacantes que pueden interesarte:\\n\\n`;\n\nvacantes.forEach((v, index) => {\n  const salario = v.salary_min && v.salary_max\n    ? `$${Number(v.salary_min).toLocaleString('es-MX')} a $${Number(v.salary_max).toLocaleString('es-MX')}`\n    : 'Salario por confirmar';\n\n  reply += `${index + 1}️⃣ ${v.title}\\n🏢 Empresa: ${v.company_name}\\n📍 Zona: ${v.location || 'Por confirmar'}\\n🕒 Horario: ${v.schedule || 'Por confirmar'}\\n💰 Salario: ${salario}\\n✅ Beneficios: ${v.benefits || 'Por confirmar'}\\n\\n`;\n});\n\nreply += `¿Cuál te interesa?\\n\\nResponde con el número de la vacante.\\nEjemplo: 1`;\n\nreturn [\n  {\n    json: {\n      telefono: candidato.telefono,\n      reply,\n      found_vacancies: true,\n      vacancies: vacantes,\n      last_vacancies: vacantes,\n    },\n  },\n];"
+  },
+  "Actualizar sesión con last_vacancies": {
+    "operation": "executeQuery",
+    "query": "update public.candidate_sessions set data = data || jsonb_build_object('last_vacancies', $1::jsonb), updated_at = now() where telefono = $2;",
+    "options": {
+      "queryReplacement": "=1: {{JSON.stringify($node[\"Construir mensaje de vacantes\"].json.vacancies)}} 2: {{$node[\"Construir mensaje de vacantes\"].json.telefono}}"
+    }
+  },
+  "¿Buscar vacantes compatibles?": {
+    "conditions": {
+      "combinator": "and",
+      "conditions": [
+        {
+          "id": "abc",
+          "leftValue": "={{ $('Cerebro Jalector').item.json.should_search_vacancies }}",
+          "operator": {
+            "operation": "true",
+            "singleValue": true,
+            "type": "boolean"
+          },
+          "rightValue": "is true"
+        }
+      ],
+      "options": {
+        "caseSensitive": true,
+        "leftValue": "",
+        "typeValidation": "strict",
+        "version": 3
+      }
+    },
+    "options": {}
+  }
+}

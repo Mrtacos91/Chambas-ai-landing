@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import type { Database } from "@/types/database";
+import { isPathAllowedForPhase } from "@/lib/auth/domain/route-policy";
+import type { AccessPhase, PlatformRole } from "@/lib/auth/domain/access-context";
+import { getPhasePolicy } from "@/lib/auth/domain/route-policy";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
@@ -24,7 +27,9 @@ const ASSET_PREFIXES = ["/_next", "/favicon", "/logo", "/file", "/globe", "/next
 
 const isPublicPath = (pathname: string) => {
   if (PUBLIC_PATHS.includes(pathname)) return true;
+  if (pathname.startsWith("/.well-known/")) return true;
   if (pathname.startsWith("/invitacion/")) return true;
+  if (pathname.startsWith("/api/webhooks/")) return true;
   if (pathname.startsWith("/api/auth/")) return true;
   if (ASSET_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true;
   return false;
@@ -40,7 +45,53 @@ const redirectTo = (request: NextRequest, pathname: string, redirect?: string) =
   return NextResponse.redirect(url);
 };
 
+const resolvePhaseFromProfile = async (
+  supabase: ReturnType<typeof createServerClient<Database>>,
+  userId: string,
+): Promise<{ phase: AccessPhase; platformRole: PlatformRole } | null> => {
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("user_type, is_active")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile || !profile.is_active) return null;
+
+  if (profile.user_type === "admin") {
+    return { phase: "admin_panel", platformRole: "admin" };
+  }
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("company_users")
+    .select("company_id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    return { phase: "needs_registration", platformRole: "usuario" };
+  }
+
+  const { data: company } = await supabase
+    .from("companies")
+    .select("active")
+    .eq("id", membership.company_id)
+    .maybeSingle();
+
+  if (company?.active === true) {
+    return { phase: "active_user", platformRole: "usuario" };
+  }
+
+  return { phase: "pending_activation", platformRole: "usuario" };
+};
+
 export const updateSession = async (request: NextRequest) => {
+  if (request.nextUrl.pathname === "/" && request.nextUrl.searchParams.has("code")) {
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = "/callback";
+    return NextResponse.redirect(callbackUrl);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -69,65 +120,34 @@ export const updateSession = async (request: NextRequest) => {
     return redirectTo(request, "/login", pathname);
   }
 
-  if (user) {
-    const isAuthRoute =
-      pathname === "/login" || pathname === "/registro" || pathname === "/verify";
+  if (!user) {
+    return response;
+  }
 
-    if (isAuthRoute) {
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("user_type")
-        .eq("id", user.id)
-        .single();
-
-      return redirectTo(request, profile?.user_type === "executive" ? "/ejecutivo" : "/cliente");
+  const access = await resolvePhaseFromProfile(supabase, user.id);
+  if (!access) {
+    if (!isPublic) {
+      return redirectTo(request, "/login");
     }
+    return response;
+  }
 
-    if (pathname.startsWith("/ejecutivo") || pathname.startsWith("/cliente")) {
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("user_type, is_active")
-        .eq("id", user.id)
-        .single();
+  const isAuthRoute = pathname === "/login" || pathname === "/verify";
+  if (isAuthRoute) {
+    return redirectTo(request, getPhasePolicy(access.phase).redirectPath);
+  }
 
-      if (!profile || !profile.is_active) {
-        return redirectTo(request, "/login");
-      }
+  if (pathname === "/registro/activacion") {
+    return redirectTo(request, "/registro/pendiente");
+  }
 
-      if (pathname.startsWith("/ejecutivo") && profile.user_type !== "executive") {
-        return redirectTo(request, "/cliente");
-      }
+  const needsGuard =
+    pathname.startsWith("/ejecutivo") ||
+    pathname.startsWith("/cliente") ||
+    pathname.startsWith("/registro");
 
-      if (pathname.startsWith("/cliente") && profile.user_type === "executive") {
-        return redirectTo(request, "/ejecutivo");
-      }
-
-      if (profile.user_type === "client" && pathname.startsWith("/cliente")) {
-        const { data: signup } = await supabase
-          .from("company_signups")
-          .select("status")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        const { count: memberships } = await supabase
-          .from("company_users")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id);
-
-        const hasCompany = (memberships ?? 0) > 0;
-
-        if (!hasCompany && pathname !== "/registro/pendiente") {
-          if (!signup) {
-            return redirectTo(request, "/registro");
-          }
-          if (signup.status === "pending" || signup.status === "rejected") {
-            return redirectTo(request, "/registro/pendiente");
-          }
-        }
-      }
-    }
+  if (needsGuard && !isPathAllowedForPhase(access.phase, pathname)) {
+    return redirectTo(request, getPhasePolicy(access.phase).redirectPath);
   }
 
   return response;

@@ -1,0 +1,1 @@
+﻿[(241, "  'esperando_puesto_buscado',"), (462, "    nextStep = 'esperando_puesto_buscado';"), (465, "  case 'esperando_puesto_buscado':")]

@@ -7,18 +7,28 @@ import { randomBytes } from "node:crypto";
 import { render } from "@react-email/render";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@/lib/supabase/admin";
-import { requireClient, requireExecutive } from "@/lib/auth/guards";
+import {
+  requireClient,
+  requireCompanyAdmin,
+  requireAdmin,
+  requireSession,
+} from "@/lib/auth/guards";
+import { activateAccount } from "@/lib/auth/application/activate-account";
+import { completeAuthSession } from "@/lib/auth/application/complete-auth-session";
+import { registerAccount } from "@/lib/auth/application/register-account";
 import { getDefaultFrom, getReplyTo, getResendClient } from "@/lib/email/resend";
 import { CompanyInvitationEmail } from "@/lib/email/templates/company-invitation";
-import { SignupApprovedEmail } from "@/lib/email/templates/signup-approved";
-import { SignupRejectedEmail } from "@/lib/email/templates/signup-rejected";
+import { AccountActivatedEmail } from "@/lib/email/templates/account-activated";
 import {
   companySignupSchema,
   inviteMemberSchema,
-  requestOtpSchema,
-  reviewSignupSchema,
-  verifyOtpSchema,
+  loginWithPasswordSchema,
 } from "@/lib/validators/auth";
+import { provisionInactiveCompany } from "@/lib/auth/company-provisioning";
+import {
+  createActivationCheckoutSession,
+  isStripeBillingEnabled,
+} from "@/lib/billing/stripe";
 import type { AuthEventType } from "@/lib/auth/types";
 import type { Json } from "@/types/database";
 
@@ -36,6 +46,45 @@ const getOrigin = async () => {
   const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
   const proto = headerStore.get("x-forwarded-proto") ?? "https";
   return host ? `${proto}://${host}` : "https://jalector.com";
+};
+
+const authFailureMessage = (fallback: string, detail?: string) => {
+  if (process.env.NODE_ENV !== "production" && detail) {
+    return `${fallback} Detalle: ${detail}`;
+  }
+  return fallback;
+};
+
+const flattenFieldErrors = (error: {
+  flatten: () => { fieldErrors: Record<string, string[] | undefined> };
+}): Record<string, string> => {
+  const flat = error.flatten().fieldErrors;
+  const result: Record<string, string> = {};
+  for (const [key, messages] of Object.entries(flat)) {
+    if (messages?.[0]) result[key] = messages[0];
+  }
+  return result;
+};
+
+const resolvePostAuthRedirect = async (
+  userId: string,
+  redirectParam: FormDataEntryValue | null,
+) => {
+  const context = await completeAuthSession(userId);
+  const safeRedirect =
+    typeof redirectParam === "string" && redirectParam.startsWith("/")
+      ? redirectParam
+      : null;
+
+  if (
+    safeRedirect &&
+    !safeRedirect.startsWith("/registro") &&
+    context?.phase === "active_user"
+  ) {
+    return safeRedirect;
+  }
+
+  return context?.redirectPath ?? "/registro";
 };
 
 const logEvent = async (params: {
@@ -60,85 +109,42 @@ const logEvent = async (params: {
   }
 };
 
-export const requestOtp = async (formData: FormData): Promise<ActionResult> => {
-  const parsed = requestOtpSchema.safeParse({ email: formData.get("email") });
-  if (!parsed.success) {
-    return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string> };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: parsed.data.email,
-    options: { shouldCreateUser: true },
-  });
-
-  if (error) {
-    await logEvent({
-      email: parsed.data.email,
-      eventType: "login_failed",
-      metadata: { stage: "request_otp", message: error.message },
-    });
-    return { ok: false, error: "No pudimos enviar el código. Inténtalo en un momento." };
-  }
-
-  await logEvent({ email: parsed.data.email, eventType: "otp_requested" });
-  return { ok: true, data: { email: parsed.data.email } };
-};
-
-export const verifyOtp = async (formData: FormData): Promise<ActionResult> => {
-  const parsed = verifyOtpSchema.safeParse({
+export const signInWithPassword = async (formData: FormData): Promise<ActionResult> => {
+  const parsed = loginWithPasswordSchema.safeParse({
     email: formData.get("email"),
-    code: formData.get("code"),
+    password: formData.get("password"),
   });
+
   if (!parsed.success) {
-    return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string> };
+    return { ok: false, fieldErrors: flattenFieldErrors(parsed.error) };
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.verifyOtp({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
-    token: parsed.data.code,
-    type: "email",
+    password: parsed.data.password,
   });
 
   if (error || !data.user) {
     await logEvent({
       email: parsed.data.email,
       eventType: "login_failed",
-      metadata: { stage: "verify_otp", message: error?.message },
+      metadata: { stage: "password_login", message: error?.message },
     });
-    return { ok: false, error: "Código inválido o vencido. Solicita uno nuevo." };
+    return {
+      ok: false,
+      error: "Correo o contraseña incorrectos. Inténtalo de nuevo.",
+    };
   }
-
-  await supabase
-    .from("user_profiles")
-    .update({ last_login_at: new Date().toISOString() })
-    .eq("id", data.user.id);
 
   await logEvent({
     userId: data.user.id,
     email: data.user.email ?? parsed.data.email,
-    eventType: "otp_verified",
+    eventType: "login_success",
   });
 
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("user_type")
-    .eq("id", data.user.id)
-    .single();
-
-  const redirectParam = formData.get("redirect");
-  const safeRedirect =
-    typeof redirectParam === "string" && redirectParam.startsWith("/")
-      ? redirectParam
-      : null;
-
-  return {
-    ok: true,
-    data: {
-      redirect: safeRedirect ?? (profile?.user_type === "executive" ? "/ejecutivo" : "/cliente"),
-    },
-  };
+  const redirectTo = await resolvePostAuthRedirect(data.user.id, formData.get("redirect"));
+  return { ok: true, data: { redirect: redirectTo } };
 };
 
 export const signInWithGoogle = async (redirectAfter?: string) => {
@@ -174,6 +180,8 @@ export const signOut = async () => {
 export const submitCompanySignup = async (formData: FormData): Promise<ActionResult> => {
   const parsed = companySignupSchema.safeParse({
     email: formData.get("email"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
     contactName: formData.get("contactName"),
     contactPhone: formData.get("contactPhone"),
     companyName: formData.get("companyName"),
@@ -184,60 +192,98 @@ export const submitCompanySignup = async (formData: FormData): Promise<ActionRes
   if (!parsed.success) {
     return {
       ok: false,
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string>,
+      fieldErrors: flattenFieldErrors(parsed.error),
     };
   }
 
   const supabase = await createClient();
-  const { error: otpError } = await supabase.auth.signInWithOtp({
-    email: parsed.data.email,
-    options: {
-      shouldCreateUser: true,
-      data: { full_name: parsed.data.contactName },
-    },
-  });
+  const {
+    data: { user: existingSessionUser },
+  } = await supabase.auth.getUser();
 
-  if (otpError) {
-    return { ok: false, error: "No pudimos enviar el código de verificación." };
+  if (existingSessionUser) {
+    const result = await registerAccount({
+      ...parsed.data,
+      userId: existingSessionUser.id,
+    });
+
+    if (!result.ok) {
+      return { ok: false, error: result.error };
+    }
+
+    await logEvent({
+      userId: existingSessionUser.id,
+      email: parsed.data.email,
+      eventType: "account_created",
+      metadata: { source: "authenticated", company_id: result.context.companyId },
+    });
+
+    return {
+      ok: true,
+      data: { email: parsed.data.email, redirect: result.context.redirectPath },
+    };
   }
 
   const admin = createAdminClient();
-  const { data: existingUser } = await admin
-    .from("user_profiles")
-    .select("id")
-    .eq("email", parsed.data.email)
-    .maybeSingle();
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    email_confirm: true,
+    user_metadata: { full_name: parsed.data.contactName },
+  });
 
-  if (existingUser) {
-    const { error: insertError } = await admin.from("company_signups").insert({
-      user_id: existingUser.id,
-      company_name: parsed.data.companyName,
-      contact_name: parsed.data.contactName,
-      contact_phone: parsed.data.contactPhone,
-      industry: parsed.data.industry,
-      expected_volume: parsed.data.expectedVolume,
-      status: "pending",
-    });
+  if (createError || !created.user) {
+    const alreadyExists =
+      createError?.message?.toLowerCase().includes("already") ||
+      createError?.message?.toLowerCase().includes("registered") ||
+      createError?.message?.toLowerCase().includes("exists");
 
-    if (insertError) {
-      return { ok: false, error: "Recibimos tu correo pero falló el registro de empresa." };
-    }
-  } else {
-    await admin.from("auth_events").insert({
-      email: parsed.data.email,
-      event_type: "signup_submitted",
-      metadata: {
-        company_name: parsed.data.companyName,
-        contact_name: parsed.data.contactName,
-        contact_phone: parsed.data.contactPhone,
-        industry: parsed.data.industry,
-        expected_volume: parsed.data.expectedVolume,
-      },
-    });
+    return {
+      ok: false,
+      error: alreadyExists
+        ? "Ese correo ya tiene una cuenta. Inicia sesión con tu contraseña."
+        : authFailureMessage(
+            "No pudimos crear tu cuenta. Inténtalo de nuevo.",
+            createError?.message,
+          ),
+    };
   }
 
-  await logEvent({ email: parsed.data.email, eventType: "signup_submitted" });
-  return { ok: true, data: { email: parsed.data.email } };
+  const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
+
+  if (signInError || !signedIn.user) {
+    return {
+      ok: false,
+      error: authFailureMessage(
+        "La cuenta se creó, pero no pudimos iniciar sesión. Entra desde Iniciar sesión.",
+        signInError?.message,
+      ),
+    };
+  }
+
+  const result = await registerAccount({
+    ...parsed.data,
+    userId: signedIn.user.id,
+  });
+
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  await logEvent({
+    userId: signedIn.user.id,
+    email: parsed.data.email,
+    eventType: "account_created",
+    metadata: { source: "password_signup", company_id: result.context.companyId },
+  });
+
+  return {
+    ok: true,
+    data: { email: parsed.data.email, redirect: result.context.redirectPath },
+  };
 };
 
 export const completeSignupAfterVerification = async () => {
@@ -245,196 +291,125 @@ export const completeSignupAfterVerification = async () => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !user.email) return;
-
-  const admin = createAdminClient();
-  const { data: pending } = await admin
-    .from("company_signups")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (pending) return;
-
-  const { data: event } = await admin
-    .from("auth_events")
-    .select("metadata")
-    .eq("email", user.email)
-    .eq("event_type", "signup_submitted")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const metadata = (event?.metadata ?? {}) as Record<string, string>;
-  if (!metadata.company_name) return;
-
-  await admin.from("company_signups").insert({
-    user_id: user.id,
-    company_name: metadata.company_name,
-    contact_name: metadata.contact_name ?? null,
-    contact_phone: metadata.contact_phone ?? null,
-    industry: metadata.industry ?? null,
-    expected_volume: metadata.expected_volume ?? null,
-    status: "pending",
-  });
+  if (!user) return;
+  await completeAuthSession(user.id);
 };
 
-export const reviewSignup = async (input: {
-  signupId: string;
-  decision: "approved" | "rejected";
-  reason?: string;
-}): Promise<ActionResult> => {
-  const executive = await requireExecutive();
-  const parsed = reviewSignupSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: "Decisión inválida." };
-  }
-
+export const activateAccountManually = async (companyId: string): Promise<ActionResult> => {
+  const adminUser = await requireAdmin();
   const admin = createAdminClient();
-  const { data: signup, error: fetchError } = await admin
-    .from("company_signups")
-    .select("id, user_id, company_name, contact_name, contact_phone, industry, status")
-    .eq("id", parsed.data.signupId)
-    .single();
 
-  if (fetchError || !signup) {
-    return { ok: false, error: "No encontramos la solicitud." };
+  const { data: company } = await admin
+    .from("companies")
+    .select("id, name, contact_email, contact_name, active")
+    .eq("id", companyId)
+    .maybeSingle();
+
+  if (!company) {
+    return { ok: false, error: "No encontramos la empresa." };
   }
 
-  if (signup.status !== "pending") {
-    return { ok: false, error: "La solicitud ya fue revisada." };
+  const { data: memberships } = await admin
+    .from("company_users")
+    .select("user_id, role, created_at")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: true });
+
+  const ownerMembership =
+    memberships?.find((row) => row.role === "admin") ?? memberships?.[0] ?? null;
+
+  const result = await activateAccount({
+    companyId,
+    source: "manual",
+    activatedBy: adminUser.id,
+    userId: ownerMembership?.user_id ?? null,
+  });
+
+  if (!result.ok) {
+    return { ok: false, error: result.error };
   }
 
-  if (parsed.data.decision === "approved") {
-    const { data: company, error: companyError } = await admin
-      .from("companies")
-      .insert({
-        name: signup.company_name,
-        contact_name: signup.contact_name,
-        contact_phone: signup.contact_phone,
-        contact_email: null,
-        description: signup.industry,
-        active: true,
-      })
-      .select("id, name")
-      .single();
+  let recipientEmail: string | null = company.contact_email;
+  let contactName = company.contact_name ?? "ahí";
+  let recipientUserId = ownerMembership?.user_id ?? null;
 
-    if (companyError || !company) {
-      return { ok: false, error: "No pudimos crear la empresa." };
-    }
-
-    const { error: memberError } = await admin.from("company_users").insert({
-      company_id: company.id,
-      user_id: signup.user_id,
-      role: "owner",
-      invited_by: executive.id,
-      accepted_at: new Date().toISOString(),
-    });
-
-    if (memberError) {
-      return { ok: false, error: "Empresa creada, pero no logramos asignar al responsable." };
-    }
-
-    await admin
-      .from("company_signups")
-      .update({
-        status: "approved",
-        reviewed_by: executive.id,
-        reviewed_at: new Date().toISOString(),
-        created_company_id: company.id,
-      })
-      .eq("id", signup.id);
-
+  if (ownerMembership?.user_id) {
     const { data: ownerProfile } = await admin
       .from("user_profiles")
       .select("email, full_name")
-      .eq("id", signup.user_id)
-      .single();
+      .eq("id", ownerMembership.user_id)
+      .maybeSingle();
 
     if (ownerProfile?.email) {
-      try {
-        const origin = await getOrigin();
-        const html = await render(
-          SignupApprovedEmail({
-            companyName: company.name,
-            contactName: ownerProfile.full_name ?? signup.contact_name ?? "ahí",
-            loginUrl: `${origin}/login`,
-          }),
-        );
-        await getResendClient().emails.send({
-          from: getDefaultFrom(),
-          to: ownerProfile.email,
-          subject: `Tu cuenta de ${company.name} ya está activa en Jalector`,
-          html,
-          replyTo: getReplyTo(),
-        });
-      } catch {
-        return { ok: true };
-      }
+      recipientEmail = ownerProfile.email;
+      contactName = ownerProfile.full_name ?? company.contact_name ?? "ahí";
+      recipientUserId = ownerMembership.user_id;
     }
-
-    await logEvent({
-      userId: signup.user_id,
-      eventType: "signup_approved",
-      metadata: { company_id: company.id },
-    });
-
-    revalidatePath("/ejecutivo/empresas");
-    return { ok: true };
   }
 
-  await admin
-    .from("company_signups")
-    .update({
-      status: "rejected",
-      reviewed_by: executive.id,
-      reviewed_at: new Date().toISOString(),
-      rejection_reason: parsed.data.reason ?? null,
-    })
-    .eq("id", signup.id);
+  let emailSent = false;
+  let emailError: string | undefined;
 
-  const { data: ownerProfile } = await admin
-    .from("user_profiles")
-    .select("email, full_name")
-    .eq("id", signup.user_id)
-    .single();
-
-  if (ownerProfile?.email) {
+  if (recipientEmail) {
     try {
+      const origin = await getOrigin();
       const html = await render(
-        SignupRejectedEmail({
-          companyName: signup.company_name,
-          contactName: ownerProfile.full_name ?? signup.contact_name ?? "ahí",
-          reason: parsed.data.reason,
+        AccountActivatedEmail({
+          companyName: company.name,
+          contactName,
+          loginUrl: `${origin}/login`,
         }),
       );
-      await getResendClient().emails.send({
+      const { error: resendError } = await getResendClient().emails.send({
         from: getDefaultFrom(),
-        to: ownerProfile.email,
-        subject: `Actualización sobre tu solicitud para Jalector`,
+        to: recipientEmail,
+        subject: `Tu cuenta de ${company.name} ya está activa en Jalector`,
         html,
         replyTo: getReplyTo(),
       });
-    } catch {
-      return { ok: true };
+
+      if (resendError) {
+        emailError = resendError.message;
+      } else {
+        emailSent = true;
+      }
+    } catch (error) {
+      emailError =
+        error instanceof Error ? error.message : "No pudimos enviar el correo de activación.";
     }
+  } else {
+    emailError = "No encontramos un correo para notificar la activación.";
   }
 
   await logEvent({
-    userId: signup.user_id,
-    eventType: "signup_rejected",
-    metadata: { reason: parsed.data.reason },
+    userId: recipientUserId,
+    email: recipientEmail,
+    eventType: "account_activated",
+    metadata: {
+      company_id: companyId,
+      source: "manual",
+      activated_by: adminUser.id,
+      email_sent: emailSent,
+      email_error: emailError ?? null,
+    },
   });
 
   revalidatePath("/ejecutivo/empresas");
-  return { ok: true };
+  revalidatePath("/registro/pendiente");
+  revalidatePath("/cliente");
+
+  return {
+    ok: true,
+    data: {
+      emailSent,
+      email: recipientEmail,
+      emailError,
+    },
+  };
 };
 
 export const inviteCompanyMember = async (formData: FormData): Promise<ActionResult> => {
-  const { user, membership } = await requireClient();
-  if (membership.role !== "owner") {
-    return { ok: false, error: "Solo el administrador de la empresa puede invitar miembros." };
-  }
+  const { user, membership } = await requireCompanyAdmin();
 
   const parsed = inviteMemberSchema.safeParse({
     email: formData.get("email"),
@@ -491,7 +466,7 @@ export const inviteCompanyMember = async (formData: FormData): Promise<ActionRes
     metadata: { invited_email: parsed.data.email, role: parsed.data.role },
   });
 
-  revalidatePath("/cliente/equipo");
+  revalidatePath("/cliente");
   return { ok: true };
 };
 
@@ -531,17 +506,15 @@ export const acceptInvitation = async (token: string): Promise<ActionResult> => 
     };
   }
 
-  const { error: insertError } = await admin
-    .from("company_users")
-    .upsert(
-      {
-        company_id: invitation.company_id,
-        user_id: user.id,
-        role: invitation.role,
-        accepted_at: new Date().toISOString(),
-      },
-      { onConflict: "company_id,user_id" },
-    );
+  const { error: insertError } = await admin.from("company_users").upsert(
+    {
+      company_id: invitation.company_id,
+      user_id: user.id,
+      role: invitation.role,
+      accepted_at: new Date().toISOString(),
+    },
+    { onConflict: "company_id,user_id" },
+  );
 
   if (insertError) {
     return { ok: false, error: "No pudimos agregarte a la empresa." };
@@ -559,4 +532,53 @@ export const acceptInvitation = async (token: string): Promise<ActionResult> => 
   });
 
   return { ok: true, data: { companyId: invitation.company_id } };
+};
+
+export const startActivationCheckout = async (): Promise<ActionResult> => {
+  if (!isStripeBillingEnabled()) {
+    return {
+      ok: false,
+      error: "El cobro en línea no está habilitado. Un administrador activará tu cuenta.",
+    };
+  }
+
+  const user = await requireSession();
+  const provisioned = await provisionInactiveCompany(user.id);
+
+  if (!provisioned) {
+    return { ok: false, error: "No encontramos una empresa asociada a tu cuenta." };
+  }
+
+  if (provisioned.isActive) {
+    return { ok: false, error: "Tu cuenta ya está activa." };
+  }
+
+  const origin = await getOrigin();
+  const checkout = await createActivationCheckoutSession({
+    companyId: provisioned.companyId,
+    companyName: provisioned.companyName,
+    customerEmail: user.email,
+    successUrl: `${origin}/registro/pendiente?status=success`,
+    cancelUrl: `${origin}/registro/pendiente?status=cancelled`,
+  });
+
+  if (!checkout.ok) {
+    return { ok: false, error: checkout.error };
+  }
+
+  return { ok: true, data: { url: checkout.url } };
+};
+
+export const activateCompanyAfterPayment = async (companyId: string) => {
+  const result = await activateAccount({
+    companyId,
+    source: "stripe",
+  });
+
+  if (result.ok) {
+    revalidatePath("/registro/pendiente");
+    revalidatePath("/cliente");
+  }
+
+  return result.ok;
 };

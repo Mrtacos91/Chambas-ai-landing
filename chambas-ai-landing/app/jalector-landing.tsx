@@ -3,6 +3,8 @@
 import type { CSSProperties } from "react";
 import { useEffect, useMemo } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { FlowWaveBackground } from "@/components/landing/flow-wave-background";
 import {
   ArrowRight,
   Bot,
@@ -358,7 +360,7 @@ export default function JalectorLanding() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
-      <AnimatedBackground />
+      <FlowWaveBackground />
 
       <nav className="fixed inset-x-0 top-0 z-50 border-b border-[var(--nav-border)] bg-[var(--nav-bg)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
@@ -387,7 +389,7 @@ export default function JalectorLanding() {
             </a>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
               aria-label="Cambiar tema"
@@ -397,10 +399,22 @@ export default function JalectorLanding() {
               <Sun size={17} className="theme-icon theme-icon-sun" />
               <Moon size={17} className="theme-icon theme-icon-moon" />
             </button>
-            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="primary-button hidden sm:inline-flex">
-              Contactar
-              <ArrowRight size={16} />
-            </a>
+            <Link
+              href="/login"
+              className="nav-link text-sm font-medium text-[var(--muted)] sm:hidden"
+            >
+              Entrar
+            </Link>
+            <Link
+              href="/login"
+              className="nav-link hidden text-sm font-medium text-[var(--muted)] sm:inline-flex"
+            >
+              Iniciar sesión
+            </Link>
+            <Link href="/registro" className="primary-button !min-h-10 !px-4 !py-2 text-sm">
+              Registrarse
+              <ArrowRight size={15} />
+            </Link>
           </div>
         </div>
       </nav>
@@ -799,23 +813,6 @@ export default function JalectorLanding() {
         </div>
       </footer>
     </main>
-  );
-}
-
-function AnimatedBackground() {
-  return (
-    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[var(--background)]" />
-      <div className="animated-grid absolute inset-0" />
-      <svg className="absolute inset-0 h-full w-full" aria-hidden="true" viewBox="0 0 1440 920" preserveAspectRatio="none">
-        <path className="signal-line" d="M-80 210 C 260 90, 410 320, 700 230 S 1130 60, 1520 190" />
-        <path className="signal-line" d="M-120 520 C 220 420, 450 640, 735 520 S 1100 360, 1510 510" />
-        <path className="signal-line" d="M-90 780 C 300 710, 470 840, 760 750 S 1090 650, 1510 720" />
-        <rect className="signal-chip" x="190" y="168" width="54" height="10" rx="5" />
-        <rect className="signal-chip" x="724" y="501" width="78" height="10" rx="5" />
-        <rect className="signal-chip" x="1050" y="706" width="62" height="10" rx="5" />
-      </svg>
-    </div>
   );
 }
 

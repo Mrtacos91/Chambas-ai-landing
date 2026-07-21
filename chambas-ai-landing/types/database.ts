@@ -1,8 +1,10 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
-export type UserType = "executive" | "client";
-export type CompanyRole = "owner" | "recruiter" | "viewer";
+export type UserType = "usuario" | "admin";
+export type CompanyRole = "admin" | "usuario";
 export type SignupStatus = "pending" | "approved" | "rejected";
+export type ActivationSource = "manual" | "stripe";
+export type ActivationStatus = "pending" | "completed" | "failed" | "refunded";
 
 export interface Database {
   public: {
@@ -116,6 +118,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      company_activation_records: {
+        Row: {
+          id: string;
+          company_id: string;
+          user_id: string | null;
+          source: ActivationSource;
+          status: ActivationStatus;
+          amount_cents: number | null;
+          currency: string | null;
+          stripe_session_id: string | null;
+          stripe_payment_intent_id: string | null;
+          activated_by: string | null;
+          completed_at: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          user_id?: string | null;
+          source: ActivationSource;
+          status: ActivationStatus;
+          amount_cents?: number | null;
+          currency?: string | null;
+          stripe_session_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          activated_by?: string | null;
+          completed_at?: string | null;
+          metadata?: Json;
+        };
+        Update: Partial<Database["public"]["Tables"]["company_activation_records"]["Insert"]>;
+        Relationships: [];
+      };
       auth_events: {
         Row: {
           id: string;
@@ -148,6 +183,8 @@ export interface Database {
           contact_phone: string | null;
           contact_email: string | null;
           active: boolean | null;
+          activated_at: string | null;
+          activation_source: ActivationSource | null;
           created_at: string | null;
           updated_at: string | null;
         };
@@ -159,6 +196,8 @@ export interface Database {
           contact_phone?: string | null;
           contact_email?: string | null;
           active?: boolean | null;
+          activated_at?: string | null;
+          activation_source?: ActivationSource | null;
         };
         Update: Partial<Database["public"]["Tables"]["companies"]["Insert"]>;
         Relationships: [];
@@ -185,6 +224,18 @@ export interface Database {
           id?: string;
           company_id?: string | null;
           title: string;
+          description?: string | null;
+          location?: string | null;
+          schedule?: string | null;
+          salary_min?: number | null;
+          salary_max?: number | null;
+          preferred_shift?: string | null;
+          experience_required?: string | null;
+          benefits?: string | null;
+          requirements?: string | null;
+          active?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["vacancies"]["Insert"]>;
         Relationships: [];
@@ -271,12 +322,56 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["candidate_selected_vacancies"]["Insert"]>;
         Relationships: [];
       };
+      vacancy_candidate_pipeline: {
+        Row: {
+          id: string;
+          vacancy_id: string;
+          candidate_phone: string;
+          stage: string;
+          notes: string;
+          has_interest: boolean;
+          source: string;
+          last_activity_at: string;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vacancy_id: string;
+          candidate_phone: string;
+          stage?: string;
+          notes?: string;
+          has_interest?: boolean;
+          source?: string;
+          last_activity_at?: string;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["vacancy_candidate_pipeline"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
       current_user_type: { Args: Record<string, never>; Returns: string };
       is_executive: { Args: Record<string, never>; Returns: boolean };
+      is_admin: { Args: Record<string, never>; Returns: boolean };
       user_belongs_to_company: { Args: { target_company: string }; Returns: boolean };
+      get_access_context: {
+        Args: { p_user_id: string };
+        Returns: {
+          user_id: string;
+          platform_role: string;
+          company_role: string | null;
+          phase: string;
+          company_id: string | null;
+          company_name: string | null;
+          company_active: boolean;
+          redirect_path: string;
+        }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

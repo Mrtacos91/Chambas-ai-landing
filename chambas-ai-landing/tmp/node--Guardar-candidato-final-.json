@@ -1,0 +1,28 @@
+{
+  "name": "¿Guardar candidato final?",
+  "type": "n8n-nodes-base.if",
+  "parameters": {
+    "conditions": {
+      "options": {
+        "caseSensitive": true,
+        "leftValue": "",
+        "typeValidation": "strict",
+        "version": 3
+      },
+      "conditions": [
+        {
+          "id": "1c570493-714c-4fae-b36b-b80114dd2ab2",
+          "leftValue": "={{ $('Cerebro Jalector').item.json.should_upsert_candidate }}",
+          "rightValue": "is true",
+          "operator": {
+            "type": "boolean",
+            "operation": "true",
+            "singleValue": true
+          }
+        }
+      ],
+      "combinator": "or"
+    },
+    "options": {}
+  }
+}

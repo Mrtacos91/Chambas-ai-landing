@@ -1,6 +1,11 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import type { CurrentMembership, CurrentUser } from "@/lib/auth/types";
+import { resolveAccessContext } from "@/lib/auth/application/resolve-access-context";
+import type {
+  CompanyActivationState,
+  CurrentMembership,
+  CurrentUser,
+} from "@/lib/auth/types";
 
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
@@ -32,6 +37,12 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   };
 });
 
+export const getAccessContext = cache(async () => {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  return resolveAccessContext(user.id);
+});
+
 export const getCurrentMemberships = cache(async (): Promise<CurrentMembership[]> => {
   const supabase = await createClient();
   const {
@@ -50,18 +61,20 @@ export const getCurrentMemberships = cache(async (): Promise<CurrentMembership[]
   const companyIds = memberships.map((row) => row.company_id);
   const { data: companies } = await supabase
     .from("companies")
-    .select("id, name")
+    .select("id, name, active")
     .in("id", companyIds);
 
-  const companyNameById = new Map(
-    (companies ?? []).map((row) => [row.id, row.name]),
-  );
+  const companyById = new Map((companies ?? []).map((row) => [row.id, row]));
 
-  return memberships.map((row) => ({
-    companyId: row.company_id,
-    companyName: companyNameById.get(row.company_id) ?? "Empresa",
-    role: row.role,
-  }));
+  return memberships.map((row) => {
+    const company = companyById.get(row.company_id);
+    return {
+      companyId: row.company_id,
+      companyName: company?.name ?? "Empresa",
+      role: row.role,
+      isCompanyActive: company?.active === true,
+    };
+  });
 });
 
 export const getActiveMembership = cache(async (): Promise<CurrentMembership | null> => {
@@ -87,3 +100,16 @@ export const getPendingSignup = cache(async () => {
 
   return data;
 });
+
+export const getCompanyActivationState = cache(
+  async (): Promise<CompanyActivationState | null> => {
+    const membership = await getActiveMembership();
+    if (!membership) return null;
+
+    return {
+      companyId: membership.companyId,
+      companyName: membership.companyName,
+      isActive: membership.isCompanyActive,
+    };
+  },
+);

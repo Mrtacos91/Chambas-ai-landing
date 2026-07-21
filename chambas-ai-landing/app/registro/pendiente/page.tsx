@@ -1,77 +1,87 @@
 import type { Metadata } from "next";
-import { CheckCircle2, Clock, MailQuestion } from "lucide-react";
+import { redirect } from "next/navigation";
+import { CheckCircle2, Clock, Rocket } from "lucide-react";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { requireSession } from "@/lib/auth/guards";
-import { getPendingSignup } from "@/lib/auth/session";
+import { getAccessContext, getCompanyActivationState } from "@/lib/auth/session";
+import { provisionInactiveCompany } from "@/lib/auth/company-provisioning";
 
 export const metadata: Metadata = {
-  title: "Solicitud en revisión",
-  description: "Estamos revisando tu solicitud de acceso.",
+  title: "Cuenta pendiente de activación",
+  description: "Tu cuenta está creada. Un administrador de Jalector la activará pronto.",
   robots: { index: false, follow: false },
 };
 
 const PendientePage = async () => {
   const user = await requireSession();
-  const signup = await getPendingSignup();
+  let activation = await getCompanyActivationState();
 
-  const statusLabel: Record<string, string> = {
-    pending: "En revisión",
-    approved: "Aprobada",
-    rejected: "No aprobada",
-  };
-  const status = signup?.status ?? "pending";
+  if (!activation) {
+    const provisioned = await provisionInactiveCompany(user.id);
+    if (provisioned) {
+      activation = {
+        companyId: provisioned.companyId,
+        companyName: provisioned.companyName,
+        isActive: provisioned.isActive,
+      };
+    }
+  }
+
+  const context = await getAccessContext();
+  if (context?.phase === "active_user") {
+    redirect("/cliente");
+  }
+  if (context?.phase === "admin_panel") {
+    redirect("/ejecutivo");
+  }
+  if (context?.phase === "needs_registration") {
+    redirect("/registro");
+  }
+
+  const companyName = activation?.companyName ?? "tu empresa";
 
   return (
     <AuthShell
-      eyebrow="Solicitud"
-      title="Estamos revisando tu acceso"
-      subtitle={`Recibimos la solicitud de ${signup?.company_name ?? "tu empresa"}. Te avisamos al correo ${user.email} en cuanto haya respuesta.`}
+      eyebrow="Activación"
+      title="Tu cuenta está lista"
+      subtitle={`Registramos ${companyName}. Un administrador de Jalector activará tu acceso al panel. Te avisamos en ${user.email}.`}
       footer={
         <div className="auth-pending-footer">
-          <span>¿Necesitas algo más?</span>
+          <span>Correo: {user.email}</span>
           <LogoutButton label="Cerrar sesión" />
         </div>
       }
     >
       <ul className="auth-timeline">
-        <li className={status !== "rejected" ? "auth-timeline-active" : undefined}>
+        <li className="auth-timeline-active">
           <CheckCircle2 size={18} />
           <div>
-            <p className="auth-timeline-title">Solicitud recibida</p>
+            <p className="auth-timeline-title">Cuenta creada</p>
             <p className="auth-timeline-text">
-              Guardamos los datos de tu empresa y validamos tu correo corporativo.
+              Validamos tu correo y creamos la empresa con tu usuario como administrador.
             </p>
           </div>
         </li>
-        <li className={status === "pending" ? "auth-timeline-active" : undefined}>
+        <li className="auth-timeline-active">
           <Clock size={18} />
           <div>
-            <p className="auth-timeline-title">Revisión por ejecutivo: {statusLabel[status]}</p>
+            <p className="auth-timeline-title">Activación por el equipo</p>
             <p className="auth-timeline-text">
-              Un ejecutivo de Jalector revisa la información en menos de 24 horas hábiles
-              y te notifica por correo.
+              Un administrador revisa y activa tu cuenta. Suele tomar menos de 24 horas hábiles.
             </p>
           </div>
         </li>
         <li>
-          <MailQuestion size={18} />
+          <Rocket size={18} />
           <div>
-            <p className="auth-timeline-title">Activación del panel</p>
+            <p className="auth-timeline-title">Panel habilitado</p>
             <p className="auth-timeline-text">
-              Cuando aprobemos tu cuenta podrás entrar al panel ejecutivo, configurar
-              tu número de WhatsApp Business y publicar vacantes.
+              Cuando esté activa podrás entrar al panel, publicar vacantes y conectar WhatsApp Business.
             </p>
           </div>
         </li>
       </ul>
-
-      {status === "rejected" && signup?.rejection_reason ? (
-        <div className="auth-rejection-box">
-          <p className="auth-rejection-label">Motivo</p>
-          <p className="auth-rejection-text">{signup.rejection_reason}</p>
-        </div>
-      ) : null}
     </AuthShell>
   );
 };

@@ -38,8 +38,8 @@ export const SignupForm = () => {
         if (result.error) setError(result.error);
         return;
       }
-      const email = (result.data as { email: string }).email;
-      router.push(`/verify?email=${encodeURIComponent(email)}&redirect=/registro/pendiente`);
+      const data = result.data as { email: string; redirect?: string };
+      router.push(data.redirect ?? "/registro/pendiente");
     });
   };
 
@@ -58,6 +58,42 @@ export const SignupForm = () => {
           disabled={pending}
         />
         {fieldErrors.email ? <span className="auth-field-error">{fieldErrors.email}</span> : null}
+      </label>
+
+      <label className="auth-label" htmlFor="password">
+        Contraseña
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          placeholder="Mínimo 8 caracteres"
+          className="auth-input"
+          disabled={pending}
+        />
+        {fieldErrors.password ? (
+          <span className="auth-field-error">{fieldErrors.password}</span>
+        ) : null}
+      </label>
+
+      <label className="auth-label" htmlFor="confirmPassword">
+        Confirmar contraseña
+        <input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          placeholder="Repite tu contraseña"
+          className="auth-input"
+          disabled={pending}
+        />
+        {fieldErrors.confirmPassword ? (
+          <span className="auth-field-error">{fieldErrors.confirmPassword}</span>
+        ) : null}
       </label>
 
       <label className="auth-label" htmlFor="contactName">
@@ -150,7 +186,7 @@ export const SignupForm = () => {
       <div className="auth-form-actions">
         <button type="submit" disabled={pending} className="auth-primary-button">
           {pending ? <Loader2 size={16} className="auth-spinner" /> : null}
-          Enviar solicitud
+          Crear cuenta
           {!pending ? <ArrowRight size={16} /> : null}
         </button>
         {error ? <p className="auth-error">{error}</p> : null}

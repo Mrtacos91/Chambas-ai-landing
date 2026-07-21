@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { completeAuthSession } from "@/lib/auth/application/complete-auth-session";
 
 export const GET = async (request: NextRequest) => {
   const { searchParams, origin } = new URL(request.url);
@@ -19,46 +20,17 @@ export const GET = async (request: NextRequest) => {
     );
   }
 
-  await supabase
-    .from("user_profiles")
-    .update({ last_login_at: new Date().toISOString() })
-    .eq("id", data.user.id);
+  const context = await completeAuthSession(data.user.id);
 
-  if (redirectTo && redirectTo.startsWith("/")) {
+  if (
+    redirectTo &&
+    redirectTo.startsWith("/") &&
+    !redirectTo.startsWith("/registro") &&
+    context?.phase === "active_user"
+  ) {
     return NextResponse.redirect(new URL(redirectTo, origin));
   }
 
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("user_type")
-    .eq("id", data.user.id)
-    .single();
-
-  const { data: memberships } = await supabase
-    .from("company_users")
-    .select("id")
-    .eq("user_id", data.user.id)
-    .limit(1);
-
-  const { data: pendingSignup } = await supabase
-    .from("company_signups")
-    .select("id, status")
-    .eq("user_id", data.user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (profile?.user_type === "executive") {
-    return NextResponse.redirect(new URL("/ejecutivo", origin));
-  }
-
-  if (memberships && memberships.length > 0) {
-    return NextResponse.redirect(new URL("/cliente", origin));
-  }
-
-  if (pendingSignup) {
-    return NextResponse.redirect(new URL("/registro/pendiente", origin));
-  }
-
-  return NextResponse.redirect(new URL("/registro", origin));
+  const target = context?.redirectPath ?? "/registro";
+  return NextResponse.redirect(new URL(target, origin));
 };

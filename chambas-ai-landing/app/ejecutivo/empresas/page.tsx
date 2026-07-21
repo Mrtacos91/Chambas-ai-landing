@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
 import { Inbox } from "lucide-react";
-import { requireExecutive } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/auth/guards";
 import { createClient as createAdminClient } from "@/lib/supabase/admin";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
-import { SignupReviewControls } from "@/components/auth/signup-review-controls";
+import { ActivateCompanyButton } from "@/components/auth/activate-company-button";
 
 export const metadata: Metadata = {
-  title: "Cola de solicitudes",
-  description: "Aprobar o rechazar las solicitudes de nuevas empresas.",
+  title: "Activación de cuentas · Uso interno",
+  description: "Activa las cuentas de empresas registradas en Jalector. Panel de uso interno.",
   robots: { index: false, follow: false },
-};
-
-const statusLabels: Record<string, string> = {
-  pending: "Pendiente",
-  approved: "Aprobada",
-  rejected: "Rechazada",
 };
 
 const dateFormatter = new Intl.DateTimeFormat("es-MX", {
@@ -23,31 +17,43 @@ const dateFormatter = new Intl.DateTimeFormat("es-MX", {
 });
 
 const EmpresasPage = async () => {
-  const executive = await requireExecutive();
+  const adminUser = await requireAdmin();
   const admin = createAdminClient();
-  const { data: signups } = await admin
-    .from("company_signups")
+
+  const { data: companies } = await admin
+    .from("companies")
     .select(
-      "id, company_name, contact_name, contact_phone, industry, expected_volume, status, created_at, reviewed_at, rejection_reason, user_id",
+      "id, name, contact_name, contact_phone, contact_email, active, activated_at, activation_source, created_at",
     )
     .order("created_at", { ascending: false });
 
-  const rows = signups ?? [];
-  const pendingCount = rows.filter((row) => row.status === "pending").length;
-  const userIds = rows.map((row) => row.user_id);
-  const { data: profiles } = userIds.length
+  const rows = companies ?? [];
+  const inactive = rows.filter((row) => row.active !== true);
+  const active = rows.filter((row) => row.active === true);
+
+  const companyIds = rows.map((row) => row.id);
+  const { data: memberships } = companyIds.length
     ? await admin
-        .from("user_profiles")
-        .select("id, email")
-        .in("id", userIds)
+        .from("company_users")
+        .select("company_id, user_id, role")
+        .in("company_id", companyIds)
+        .eq("role", "admin")
     : { data: [] };
-  const emailByUser = new Map((profiles ?? []).map((row) => [row.id, row.email]));
+
+  const ownerByCompany = new Map(
+    (memberships ?? []).map((row) => [row.company_id, row.user_id]),
+  );
+  const ownerIds = [...new Set([...(memberships ?? []).map((row) => row.user_id)])];
+  const { data: profiles } = ownerIds.length
+    ? await admin.from("user_profiles").select("id, email, full_name").in("id", ownerIds)
+    : { data: [] };
+  const profileById = new Map((profiles ?? []).map((row) => [row.id, row]));
 
   return (
     <main className="dashboard-main">
       <DashboardHeader
-        user={{ email: executive.email, fullName: executive.fullName }}
-        subtitle="Panel ejecutivo"
+        user={{ email: adminUser.email, fullName: adminUser.fullName }}
+        subtitle="Uso interno Jalector"
         nav={
           <>
             <a href="/ejecutivo" className="dashboard-nav-link">
@@ -63,63 +69,107 @@ const EmpresasPage = async () => {
       <section className="dashboard-section">
         <div className="dashboard-section-head">
           <div>
-            <p className="dashboard-eyebrow">Solicitudes</p>
-            <h1 className="dashboard-title">Cola de aprobación de empresas</h1>
+            <p className="dashboard-eyebrow">Activación</p>
+            <h1 className="dashboard-title">Cuentas pendientes de activación</h1>
             <p className="dashboard-subtitle">
-              Revisa las solicitudes que llegan desde el formulario público de registro.
-              Aprobarlas crea la empresa y asigna al responsable como administrador.
+              Las empresas se crean al registrarse. Activa la cuenta para habilitar el panel del cliente.
             </p>
           </div>
-          <span className="dashboard-pill">{pendingCount} pendientes</span>
+          <span className="dashboard-pill">{inactive.length} pendientes</span>
         </div>
 
-        {rows.length === 0 ? (
+        {inactive.length === 0 ? (
           <div className="dashboard-empty">
             <Inbox size={20} />
-            <p>Aún no hay solicitudes registradas.</p>
+            <p>No hay cuentas pendientes de activación.</p>
           </div>
         ) : (
           <div className="signup-table">
-            {rows.map((row) => (
-              <article key={row.id} className="signup-card">
-                <header className="signup-card-head">
-                  <div>
-                    <h2 className="signup-card-title">{row.company_name}</h2>
-                    <p className="signup-card-subtitle">
-                      {row.contact_name ?? "Responsable sin nombre"} · {emailByUser.get(row.user_id) ?? "correo no disponible"}
-                    </p>
-                  </div>
-                  <span className={`signup-status signup-status-${row.status}`}>
-                    {statusLabels[row.status] ?? row.status}
-                  </span>
-                </header>
+            {inactive.map((row) => {
+              const ownerId = ownerByCompany.get(row.id);
+              const owner = ownerId ? profileById.get(ownerId) : null;
+              return (
+                <article key={row.id} className="signup-card">
+                  <header className="signup-card-head">
+                    <div>
+                      <h2 className="signup-card-title">{row.name}</h2>
+                      <p className="signup-card-subtitle">
+                        {row.contact_name ?? owner?.full_name ?? "Sin responsable"} ·{" "}
+                        {owner?.email ?? row.contact_email ?? "correo no disponible"}
+                      </p>
+                    </div>
+                    <span className="signup-status signup-status-pending">Inactiva</span>
+                  </header>
 
-                <dl className="signup-card-grid">
-                  <div>
-                    <dt>Teléfono</dt>
-                    <dd>{row.contact_phone ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>Industria</dt>
-                    <dd>{row.industry ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>Volumen esperado</dt>
-                    <dd>{row.expected_volume ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>Solicitada</dt>
-                    <dd>{row.created_at ? dateFormatter.format(new Date(row.created_at)) : "—"}</dd>
-                  </div>
-                </dl>
+                  <dl className="signup-card-grid">
+                    <div>
+                      <dt>Teléfono</dt>
+                      <dd>{row.contact_phone ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt>Registrada</dt>
+                      <dd>
+                        {row.created_at
+                          ? dateFormatter.format(new Date(row.created_at))
+                          : "—"}
+                      </dd>
+                    </div>
+                  </dl>
 
-                {row.status === "rejected" && row.rejection_reason ? (
-                  <p className="signup-reject-note">Motivo: {row.rejection_reason}</p>
-                ) : null}
+                  <ActivateCompanyButton companyId={row.id} companyName={row.name} />
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
-                {row.status === "pending" ? <SignupReviewControls signupId={row.id} /> : null}
-              </article>
-            ))}
+      <section className="dashboard-section">
+        <div className="dashboard-section-head">
+          <div>
+            <p className="dashboard-eyebrow">Historial</p>
+            <h2 className="dashboard-title">Cuentas activas</h2>
+          </div>
+          <span className="dashboard-pill">{active.length} activas</span>
+        </div>
+
+        {active.length === 0 ? (
+          <div className="dashboard-empty">
+            <p>Aún no hay empresas activas.</p>
+          </div>
+        ) : (
+          <div className="signup-table">
+            {active.map((row) => {
+              const ownerId = ownerByCompany.get(row.id);
+              const owner = ownerId ? profileById.get(ownerId) : null;
+              return (
+                <article key={row.id} className="signup-card">
+                  <header className="signup-card-head">
+                    <div>
+                      <h2 className="signup-card-title">{row.name}</h2>
+                      <p className="signup-card-subtitle">
+                        {owner?.email ?? row.contact_email ?? "sin correo"}
+                      </p>
+                    </div>
+                    <span className="signup-status signup-status-approved">Activa</span>
+                  </header>
+                  <dl className="signup-card-grid">
+                    <div>
+                      <dt>Activada</dt>
+                      <dd>
+                        {row.activated_at
+                          ? dateFormatter.format(new Date(row.activated_at))
+                          : "—"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Origen</dt>
+                      <dd>{row.activation_source ?? "—"}</dd>
+                    </div>
+                  </dl>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

@@ -8,37 +8,40 @@ export const emailSchema = z
   .max(254)
   .transform((value) => value.toLowerCase());
 
-export const otpSchema = z
+export const passwordSchema = z
   .string()
-  .trim()
-  .regex(/^\d{6}$/u, "El código debe tener 6 dígitos");
+  .min(8, "La contraseña debe tener al menos 8 caracteres")
+  .max(72, "La contraseña es demasiado larga");
 
-export const requestOtpSchema = z.object({
+export const loginWithPasswordSchema = z.object({
   email: emailSchema,
+  password: z.string().min(1, "La contraseña es obligatoria").max(72),
 });
 
-export const verifyOtpSchema = z.object({
-  email: emailSchema,
-  code: otpSchema,
-});
-
-export const companySignupSchema = z.object({
-  email: emailSchema,
-  contactName: z.string().trim().min(2, "El nombre del responsable es obligatorio").max(120),
-  contactPhone: z
-    .string()
-    .trim()
-    .min(8, "Teléfono inválido")
-    .max(20)
-    .regex(/^[+\d\s()-]+$/u, "El teléfono solo puede contener dígitos y símbolos"),
-  companyName: z.string().trim().min(2, "El nombre de la empresa es obligatorio").max(160),
-  industry: z.string().trim().min(2, "Indica la industria").max(80),
-  expectedVolume: z.string().trim().min(1, "Selecciona un volumen estimado").max(80),
-});
+export const companySignupSchema = z
+  .object({
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "Confirma tu contraseña"),
+    contactName: z.string().trim().min(2, "El nombre del responsable es obligatorio").max(120),
+    contactPhone: z
+      .string()
+      .trim()
+      .min(8, "Teléfono inválido")
+      .max(20)
+      .regex(/^[+\d\s()-]+$/u, "El teléfono solo puede contener dígitos y símbolos"),
+    companyName: z.string().trim().min(2, "El nombre de la empresa es obligatorio").max(160),
+    industry: z.string().trim().min(2, "Indica la industria").max(80),
+    expectedVolume: z.string().trim().min(1, "Selecciona un volumen estimado").max(80),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  });
 
 export const inviteMemberSchema = z.object({
   email: emailSchema,
-  role: z.enum(["owner", "recruiter", "viewer"]),
+  role: z.enum(["admin", "usuario"]),
 });
 
 export const reviewSignupSchema = z.object({
@@ -50,3 +53,4 @@ export const reviewSignupSchema = z.object({
 export type CompanySignupInput = z.infer<typeof companySignupSchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
 export type ReviewSignupInput = z.infer<typeof reviewSignupSchema>;
+export type LoginWithPasswordInput = z.infer<typeof loginWithPasswordSchema>;

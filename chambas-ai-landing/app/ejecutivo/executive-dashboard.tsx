@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
   ArrowUpRight,
   BarChart3,
   BriefcaseBusiness,
+  Building2,
   CalendarClock,
   CheckCircle2,
   Clock3,
@@ -27,6 +30,7 @@ import {
   Zap,
 } from "lucide-react";
 import { animate, stagger } from "animejs";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 export type ExecutiveModule =
   | "radar"
@@ -123,6 +127,11 @@ type DashboardProps = {
   isLocked: boolean;
   rows: CandidateRow[];
   stats: DashboardStats;
+  user: {
+    fullName: string | null;
+    email: string;
+    avatarUrl: string | null;
+  };
 };
 
 const modules: Array<{
@@ -167,6 +176,7 @@ export default function ExecutiveDashboard({
   isLocked,
   rows,
   stats,
+  user,
 }: DashboardProps) {
   const [activeModule, setActiveModule] = useState<ExecutiveModule>(
     modules.some((module) => module.id === initialModule)
@@ -254,20 +264,24 @@ export default function ExecutiveDashboard({
       <div className="mx-auto flex min-h-screen w-full max-w-[1500px] flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-[var(--line)] pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-2xl bg-[var(--brand-navy)] text-[var(--background)] shadow-sm">
-              <Sparkles size={19} />
-            </div>
+            <ExecutiveProfileMark
+              avatarUrl={user.avatarUrl}
+              fullName={user.fullName}
+            />
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--brand-green)]">
-                Jalector
+                Jalector · Uso interno
               </p>
               <h1 className="font-display text-2xl font-bold tracking-normal sm:text-3xl">
-                Panel ejecutivo
+                Panel interno
               </h1>
+              <p className="mt-0.5 text-sm text-[var(--muted)]">
+                {user.fullName ?? user.email}
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             <label className="flex min-h-11 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 text-sm text-[var(--muted)] shadow-sm backdrop-blur-xl">
               <Search size={16} className="shrink-0" />
               <input
@@ -286,9 +300,14 @@ export default function ExecutiveDashboard({
               <Sun className="theme-icon theme-icon-sun" size={18} />
               <Moon className="theme-icon theme-icon-moon" size={18} />
             </button>
-            <div className="flex min-h-11 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-700">
+            <LogoutButton
+              className="executive-logout"
+              formClassName="executive-logout-form"
+              iconOnly
+            />
+            <div className="flex min-h-11 items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800">
               <ShieldCheck size={16} />
-              <span>{isLocked ? "Acceso requerido" : "Conectado"}</span>
+              <span>{isLocked ? "Acceso requerido" : "Uso interno"}</span>
             </div>
           </div>
         </header>
@@ -356,6 +375,34 @@ export default function ExecutiveDashboard({
 
       <BottomNavbar activeModule={activeModule} onSelect={setActiveModule} />
     </main>
+  );
+}
+
+function ExecutiveProfileMark({
+  avatarUrl,
+}: {
+  avatarUrl: string | null;
+  fullName: string | null;
+}) {
+  return (
+    <div className="executive-profile-mark">
+      {avatarUrl ? (
+        <img
+          alt=""
+          className="executive-profile-image"
+          referrerPolicy="no-referrer"
+          src={avatarUrl}
+        />
+      ) : (
+        <Image
+          alt=""
+          className="executive-profile-image"
+          height={44}
+          src="/logo.png"
+          width={44}
+        />
+      )}
+    </div>
   );
 }
 
@@ -701,12 +748,12 @@ function IntelligenceModule({
         </div>
       </div>
 
-      <div className="executive-card rounded-[22px] border border-[var(--line)] bg-[var(--brand-navy)] p-5 text-[var(--background)] shadow-[var(--shadow)]">
-        <TrendingUp size={22} className="text-emerald-300" />
-        <h2 className="mt-4 font-display text-lg font-bold">
+      <div className="executive-card rounded-[22px] border border-[var(--line)] bg-[var(--panel-inverse)] p-6 text-[var(--panel-inverse-fg)] shadow-[var(--shadow)]">
+        <TrendingUp size={22} className="text-[var(--panel-inverse-accent)]" />
+        <h2 className="mt-4 font-display text-lg font-bold text-[var(--panel-inverse-fg)]">
           Lectura ejecutiva
         </h2>
-        <p className="mt-3 text-sm leading-6 opacity-80">
+        <p className="mt-3 text-sm leading-6 text-[var(--panel-inverse-muted)]">
           El pipeline tiene {stats.totalCandidates} candidatos,{" "}
           {stats.completedProfiles} perfiles listos, {stats.shownMatches}{" "}
           vacantes mostradas y {stats.withVacancyInterest} señales de interés.
@@ -872,16 +919,16 @@ function BottomNavbar({
   return (
     <nav
       className="fixed inset-x-0 bottom-4 z-50 px-3"
-      aria-label="Módulos ejecutivos"
+      aria-label="Módulos internos"
     >
-      <div className="mx-auto grid max-w-[680px] grid-cols-5 gap-1 rounded-[24px] border border-[var(--line)] bg-[var(--nav-bg)] p-2 shadow-[var(--shadow-strong)] backdrop-blur-2xl">
+      <div className="mx-auto grid max-w-[780px] grid-cols-6 gap-1 rounded-[24px] border border-[var(--line)] bg-[var(--nav-bg)] p-2 shadow-[var(--shadow-strong)] backdrop-blur-2xl">
         {modules.map((module) => {
           const Icon = module.icon;
           const isActive = activeModule === module.id;
 
           return (
             <button
-              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-[18px] px-2 text-[11px] font-bold transition ${
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-[18px] px-1.5 text-[10px] font-bold transition sm:px-2 sm:text-[11px] ${
                 isActive
                   ? "bg-[var(--brand-navy)] text-[var(--background)]"
                   : "text-[var(--muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
@@ -895,6 +942,13 @@ function BottomNavbar({
             </button>
           );
         })}
+        <Link
+          href="/ejecutivo/empresas"
+          className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-[18px] px-1.5 text-[10px] font-bold text-[var(--muted)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)] sm:px-2 sm:text-[11px]"
+        >
+          <Building2 size={18} />
+          <span>Activar</span>
+        </Link>
       </div>
     </nav>
   );

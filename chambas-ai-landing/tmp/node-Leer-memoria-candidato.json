@@ -1,0 +1,11 @@
+{
+  "name": "Leer memoria candidato",
+  "type": "n8n-nodes-base.postgres",
+  "parameters": {
+    "operation": "executeQuery",
+    "query": "select\n  s.telefono,\n  s.current_step,\n  s.data,\n  s.last_message_id,\n  $2::text as incoming_text,\n  $3::text as message_type,\n\n  case\n    when c.id is not null then true\n    else false\n  end as candidate_exists,\n\n  to_jsonb(c) as candidate_profile\n\nfrom public.candidate_sessions s\nleft join public.candidates c\n  on c.telefono = s.telefono\nwhere s.telefono = $1\nlimit 1;",
+    "options": {
+      "queryReplacement": "=1: {{ $('Normalizar mensaje').item.json.telefono }}  2: {{ $('Normalizar mensaje').item.json.text }}  3: {{ $('Normalizar mensaje').item.json.message_type }}"
+    }
+  }
+}

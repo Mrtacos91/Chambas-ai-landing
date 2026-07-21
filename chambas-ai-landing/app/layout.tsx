@@ -53,7 +53,7 @@ export const metadata: Metadata = {
   publisher: SITE_NAME,
   generator: "Next.js",
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    icon: [{ url: "favicon.ico", type: "image/svg+xml" }],
     apple: [{ url: "/apple-icon.png" }],
   },
   robots: {

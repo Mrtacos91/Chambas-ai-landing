@@ -1,0 +1,6 @@
+-- Reference migration already applied on Jalector (oobbsbvgtwwmmhvcydrn).
+-- Roles: user_profiles.user_type usuario|admin
+-- Company roles: company_users.role / company_invitations.role admin|usuario
+-- Table: company_activation_records
+-- Columns: companies.activated_at, companies.activation_source
+-- Functions: is_admin(), get_access_context(uuid), handle_new_user updated

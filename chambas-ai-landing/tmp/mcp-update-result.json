@@ -1,0 +1,3 @@
+event: message
+data: {"result":{"content":[{"type":"text","text":"{\n  \"workflowId\": \"zphHtNEzhuCM2J6W\",\n  \"name\": \"WA - Jalector Registro Candidatos\",\n  \"nodeCount\": 20,\n  \"url\": \"https://bot.jalector.com/workflow/zphHtNEzhuCM2J6W\",\n  \"appliedOperations\": 1,\n  \"autoAssignedCredentials\": [],\n  \"validationWarnings\": []\n}"}],"structuredContent":{"workflowId":"zphHtNEzhuCM2J6W","name":"WA - Jalector Registro Candidatos","nodeCount":20,"url":"https://bot.jalector.com/workflow/zphHtNEzhuCM2J6W","appliedOperations":1,"autoAssignedCredentials":[],"validationWarnings":[]}},"jsonrpc":"2.0","id":1784619152410}
+

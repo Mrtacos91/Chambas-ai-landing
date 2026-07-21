@@ -35,9 +35,8 @@ export const SignupApprovedEmail = ({
         <Heading style={heading}>Bienvenido a Jalector, {contactName}</Heading>
 
         <Text style={paragraph}>
-          Aprobamos la cuenta de <strong>{companyName}</strong>. Tu acceso al
-          panel ejecutivo ya está activo y puedes empezar a captar candidatos por
-          WhatsApp en cuanto lo decidas.
+          Activamos la cuenta de <strong>{companyName}</strong>. Ya puedes entrar al panel,
+          publicar vacantes y conectar WhatsApp Business.
         </Text>
 
         <Section style={buttonSection}>
@@ -47,9 +46,7 @@ export const SignupApprovedEmail = ({
         </Section>
 
         <Text style={paragraph}>
-          En tu primera sesión configuramos contigo el número de WhatsApp Business
-          y tus vacantes iniciales. Si tienes dudas, responde este correo y
-          nuestro equipo te ayuda.
+          Si tienes dudas, responde este correo y nuestro equipo te ayuda.
         </Text>
 
         <Hr style={divider} />
