@@ -19,6 +19,14 @@ import {
   splitCatalogOrCustom,
 } from "@/lib/vacancies/domain/vacancy-form-options";
 import {
+  CITY_OTHER,
+  MEXICO_STATE_NAMES,
+  REMOTE_LOCATION,
+  composeVacancyLocation,
+  getCitiesForState,
+  parseVacancyLocation,
+} from "@/lib/vacancies/domain/mexico-locations";
+import {
   createCompanyVacancy,
   toggleCompanyVacancy,
   updateCompanyVacancy,
@@ -29,7 +37,9 @@ type VacancyFormState = {
   titleSelected: string;
   titleCustom: string;
   description: string;
-  location: string;
+  locationState: string;
+  locationCity: string;
+  locationCityCustom: string;
   scheduleSelected: string;
   scheduleCustom: string;
   salaryMin: string;
@@ -46,7 +56,9 @@ const emptyForm = (): VacancyFormState => ({
   titleSelected: "",
   titleCustom: "",
   description: "",
-  location: "",
+  locationState: "",
+  locationCity: "",
+  locationCityCustom: "",
   scheduleSelected: "",
   scheduleCustom: "",
   salaryMin: "",
@@ -70,13 +82,16 @@ const fromRecord = (vacancy: VacancyRecord): VacancyFormState => {
   const preferredShift = (VACANCY_SHIFTS as readonly string[]).includes(shiftValue)
     ? shiftValue
     : "";
+  const locationParts = parseVacancyLocation(vacancy.location);
 
   return {
     id: vacancy.id,
     titleSelected: titleParts.selected,
     titleCustom: titleParts.custom,
     description: vacancy.description ?? "",
-    location: vacancy.location ?? "",
+    locationState: locationParts.state,
+    locationCity: locationParts.city,
+    locationCityCustom: locationParts.cityCustom,
     scheduleSelected: scheduleParts.selected,
     scheduleCustom: scheduleParts.custom,
     salaryMin: vacancy.salaryMin?.toString() ?? "",
@@ -147,6 +162,17 @@ export const VacanciesModule = ({
       return;
     }
 
+    if (form.locationState && form.locationState !== REMOTE_LOCATION) {
+      if (!form.locationCity) {
+        setFieldErrors({ location: "Selecciona una ciudad o municipio" });
+        return;
+      }
+      if (form.locationCity === CITY_OTHER && !form.locationCityCustom.trim()) {
+        setFieldErrors({ location: "Escribe la ciudad o municipio" });
+        return;
+      }
+    }
+
     const resolvedSchedule = resolveCatalogOrCustom(
       form.scheduleSelected,
       form.scheduleCustom,
@@ -155,8 +181,14 @@ export const VacanciesModule = ({
       form.experienceSelected,
       form.experienceCustom,
     );
+    const resolvedLocation = composeVacancyLocation({
+      state: form.locationState,
+      city: form.locationCity,
+      cityCustom: form.locationCityCustom,
+    });
 
     formData.set("title", resolvedTitle);
+    formData.set("location", resolvedLocation ?? "");
     formData.set("schedule", resolvedSchedule ?? "");
     formData.set("preferredShift", form.preferredShift.trim());
     formData.set("experienceRequired", resolvedExperience ?? "");
@@ -183,6 +215,11 @@ export const VacanciesModule = ({
       }
     });
   };
+
+  const isRemoteLocation = form.locationState === REMOTE_LOCATION;
+  const cityOptions = form.locationState && !isRemoteLocation
+    ? getCitiesForState(form.locationState)
+    : [];
 
   return (
     <div className="space-y-5">
@@ -220,7 +257,8 @@ export const VacanciesModule = ({
             <div>
               <h3 className="font-display text-lg font-bold">Puesto</h3>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                El chatbot busca candidatos con este mismo título.
+                Usa el catálogo para que coincida con WhatsApp. Solo elige Otro si el puesto no
+                aparece en la lista.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -287,6 +325,92 @@ export const VacanciesModule = ({
 
           <section className="space-y-4 border-t border-[var(--line)] pt-5">
             <div>
+              <h3 className="font-display text-lg font-bold">Ubicación</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Se guarda como Ciudad, Estado para que el chatbot filtre bien por zona.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="auth-label">
+                Entidad federativa
+                <select
+                  className="auth-input"
+                  disabled={pending}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      locationState: event.target.value,
+                      locationCity: "",
+                      locationCityCustom: "",
+                    }))
+                  }
+                  value={form.locationState}
+                >
+                  <option value="">Selecciona una entidad</option>
+                  <option value={REMOTE_LOCATION}>{REMOTE_LOCATION}</option>
+                  {MEXICO_STATE_NAMES.map((stateName) => (
+                    <option key={stateName} value={stateName}>
+                      {stateName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="auth-label">
+                Ciudad / municipio
+                <select
+                  className="auth-input"
+                  disabled={pending || !form.locationState || isRemoteLocation}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      locationCity: event.target.value,
+                      locationCityCustom:
+                        event.target.value === CITY_OTHER ? prev.locationCityCustom : "",
+                    }))
+                  }
+                  value={form.locationCity}
+                >
+                  <option value="">
+                    {isRemoteLocation
+                      ? "No aplica para Remoto"
+                      : "Selecciona una ciudad"}
+                  </option>
+                  {cityOptions.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                  {form.locationState && !isRemoteLocation ? (
+                    <option value={CITY_OTHER}>{CITY_OTHER}</option>
+                  ) : null}
+                </select>
+              </label>
+              {form.locationCity === CITY_OTHER ? (
+                <label className="auth-label sm:col-span-2">
+                  Nombre de la ciudad o municipio
+                  <input
+                    className="auth-input"
+                    disabled={pending}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        locationCityCustom: event.target.value,
+                      }))
+                    }
+                    placeholder="Ej. San Pedro Garza García"
+                    required
+                    value={form.locationCityCustom}
+                  />
+                </label>
+              ) : null}
+              {fieldErrors.location ? (
+                <span className="auth-field-error sm:col-span-2">{fieldErrors.location}</span>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="space-y-4 border-t border-[var(--line)] pt-5">
+            <div>
               <h3 className="font-display text-lg font-bold">Condiciones</h3>
               <p className="mt-1 text-sm text-[var(--muted)]">
                 Turno y experiencia deben coincidir con las opciones del chat.
@@ -294,20 +418,7 @@ export const VacanciesModule = ({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="auth-label">
-                Ubicación
-                <input
-                  className="auth-input"
-                  disabled={pending}
-                  name="location"
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, location: event.target.value }))
-                  }
-                  placeholder="Ej. Polanco, CDMX"
-                  value={form.location}
-                />
-              </label>
-              <label className="auth-label">
-                Turno
+                Turno preferido
                 <select
                   className="auth-input"
                   disabled={pending}
@@ -325,7 +436,7 @@ export const VacanciesModule = ({
                   ))}
                 </select>
                 <span className="mt-1 block text-xs text-[var(--muted)]">
-                  Matutino, Vespertino, Nocturno o Cualquiera
+                  Cualquiera = sin filtro de turno en WhatsApp
                 </span>
               </label>
               <label className="auth-label">
@@ -399,6 +510,9 @@ export const VacanciesModule = ({
                   ))}
                   <option value={VACANCY_FIELD_OTHER}>{VACANCY_FIELD_OTHER}</option>
                 </select>
+                <span className="mt-1 block text-xs text-[var(--muted)]">
+                  Usa las mismas opciones que responde el candidato en WhatsApp
+                </span>
                 {fieldErrors.experienceRequired ? (
                   <span className="auth-field-error">{fieldErrors.experienceRequired}</span>
                 ) : null}

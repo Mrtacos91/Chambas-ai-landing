@@ -253,6 +253,212 @@ Ya tengo tu perfil registrado:
 3️⃣ Hablar con un reclutador`;
 }
 
+function buildPuestoPrompt() {
+  return `¿Qué puesto estás buscando?
+
+Responde con el número o escribe el puesto:
+
+` + formatJobTitlesList() + `
+
+Si no está en la lista, escríbelo con tus palabras.`;
+}
+
+const MEXICO_STATES = [
+  { name: 'Aguascalientes', abbr: ['ags'], places: ['aguascalientes'] },
+  { name: 'Baja California', abbr: ['bc', 'bcn'], places: ['baja california', 'tijuana', 'mexicali', 'ensenada', 'rosarito', 'tecate'] },
+  { name: 'Baja California Sur', abbr: ['bcs'], places: ['baja california sur', 'la paz', 'los cabos', 'cabo san lucas', 'san jose del cabo'] },
+  { name: 'Campeche', abbr: ['camp'], places: ['campeche', 'ciudad del carmen'] },
+  { name: 'Chiapas', abbr: ['chis'], places: ['chiapas', 'tuxtla', 'tapachula', 'san cristobal'] },
+  { name: 'Chihuahua', abbr: ['chih'], places: ['chihuahua', 'ciudad juarez', 'cd juarez', 'delicias', 'parral'] },
+  { name: 'Ciudad de México', abbr: ['cdmx', 'df', 'df.'], places: ['ciudad de mexico', 'distrito federal', 'polanco', 'coyoacan', 'iztapalapa', 'gustavo a madero', 'alvaro obregon', 'benito juarez', 'azcapotzalco', 'tlalpan', 'xochimilco', 'venustiano carranza', 'miguel hidalgo', 'iztacalco', 'magdalena contreras', 'milpa alta', 'tlahuac', 'cuajimalpa', 'condesa', 'santa fe', 'centro historico', 'roma norte', 'roma sur'] },
+  { name: 'Coahuila', abbr: ['coah'], places: ['coahuila', 'saltillo', 'torreon', 'monclova', 'piedras negras', 'ramos arizpe'] },
+  { name: 'Colima', abbr: ['col'], places: ['colima', 'manzanillo', 'tecoman'] },
+  { name: 'Durango', abbr: ['dgo'], places: ['durango', 'gomez palacio', 'lerdo'] },
+  { name: 'Estado de México', abbr: ['edomex', 'edo mex', 'edo. mex', 'edo. mex.', 'edo de mexico', 'mex'], places: ['estado de mexico', 'toluca', 'ecatepec', 'naucalpan', 'tlalnepantla', 'nezahualcoyotl', 'chalco', 'cuautitlan', 'cuautitlan izcalli', 'atizapan', 'tultitlan', 'coacalco', 'huixquilucan', 'metepec', 'texcoco', 'zumpango', 'ixtapaluca', 'chimalhuacan', 'valle de chalco', 'nicolas romero', 'tecamac', 'lerma', 'san martin obispo', 'lecheria'] },
+  { name: 'Guanajuato', abbr: ['gto'], places: ['guanajuato', 'leon', 'irapuato', 'celaya', 'salamanca', 'silao'] },
+  { name: 'Guerrero', abbr: ['gro'], places: ['guerrero', 'acapulco', 'chilpancingo', 'zihuatanejo'] },
+  { name: 'Hidalgo', abbr: ['hgo'], places: ['hidalgo', 'pachuca', 'tulancingo', 'tizayuca'] },
+  { name: 'Jalisco', abbr: ['jal'], places: ['jalisco', 'guadalajara', 'zapopan', 'tlaquepaque', 'tonala', 'tlajomulco', 'puerto vallarta'] },
+  { name: 'Michoacán', abbr: ['mich'], places: ['michoacan', 'morelia', 'uruapan', 'zamora', 'lazaro cardenas'] },
+  { name: 'Morelos', abbr: ['mor'], places: ['morelos', 'cuernavaca', 'jiutepec', 'cuautla'] },
+  { name: 'Nayarit', abbr: ['nay'], places: ['nayarit', 'tepic', 'bahia de banderas'] },
+  { name: 'Nuevo León', abbr: ['nl', 'n.l.', 'n l'], places: ['nuevo leon', 'monterrey', 'apodaca', 'san nicolas', 'santa catarina', 'escobedo', 'san pedro garza', 'garza garcia', 'salinas victoria', 'salinas victorina', 'cienega de flores', 'pesqueria', 'guadalupe nuevo leon'] },
+  { name: 'Oaxaca', abbr: ['oax'], places: ['oaxaca', 'salina cruz', 'tuxtepec', 'juchitan'] },
+  { name: 'Puebla', abbr: ['pue'], places: ['puebla', 'tehuacan', 'cholula', 'atlixco'] },
+  { name: 'Querétaro', abbr: ['qro'], places: ['queretaro', 'el marques', 'corregidora', 'san juan del rio'] },
+  { name: 'Quintana Roo', abbr: ['qroo', 'q roo'], places: ['quintana roo', 'cancun', 'playa del carmen', 'cozumel', 'tulum', 'chetumal'] },
+  { name: 'San Luis Potosí', abbr: ['slp'], places: ['san luis potosi', 'soledad de graciano'] },
+  { name: 'Sinaloa', abbr: ['sin'], places: ['sinaloa', 'culiacan', 'mazatlan', 'los mochis', 'guasave'] },
+  { name: 'Sonora', abbr: ['son'], places: ['sonora', 'hermosillo', 'ciudad obregon', 'nogales', 'guaymas', 'empalme'] },
+  { name: 'Tabasco', abbr: ['tab'], places: ['tabasco', 'villahermosa'] },
+  { name: 'Tamaulipas', abbr: ['tamps'], places: ['tamaulipas', 'reynosa', 'matamoros', 'nuevo laredo', 'tampico', 'altamira', 'ciudad madero', 'ciudad victoria'] },
+  { name: 'Tlaxcala', abbr: ['tlax'], places: ['tlaxcala', 'apizaco', 'huamantla'] },
+  { name: 'Veracruz', abbr: ['ver'], places: ['veracruz', 'xalapa', 'jalapa', 'coatzacoalcos', 'cordoba', 'orizaba', 'poza rica', 'boca del rio'] },
+  { name: 'Yucatán', abbr: ['yuc'], places: ['yucatan', 'merida', 'valladolid', 'progreso'] },
+  { name: 'Zacatecas', abbr: ['zac'], places: ['zacatecas', 'fresnillo'] },
+];
+
+const REMOTE_LOCATION_HINTS = ['remoto', 'home office', 'homeoffice', 'teletrabajo', 'hibrido'];
+
+function formatStatesList() {
+  return MEXICO_STATES.map((state, index) => (index + 1) + '. ' + state.name).join('\n');
+}
+
+function buildEstadoPrompt(puesto) {
+  const puestoLabel = puesto ? ' de ' + puesto : '';
+
+  return `¿En qué estado buscas trabajo${puestoLabel}?
+
+Así solo te muestro vacantes de tu zona.
+
+Responde con el número o escribe el estado:
+
+` + formatStatesList();
+}
+
+function collectEstadoAliases(state) {
+  return [clean(state.name)]
+    .concat(state.places.map((place) => clean(place)))
+    .filter((alias, index, list) => alias && list.indexOf(alias) === index);
+}
+
+function containsWholeWord(haystack, needle) {
+  if (!haystack || !needle) return false;
+
+  let from = 0;
+
+  while (from <= haystack.length - needle.length) {
+    const index = haystack.indexOf(needle, from);
+    if (index === -1) return false;
+
+    const before = index === 0 ? '' : haystack.charAt(index - 1);
+    const after = haystack.charAt(index + needle.length);
+    const isWordChar = (char) => char !== '' && /[a-z0-9]/.test(char);
+
+    if (!isWordChar(before) && !isWordChar(after)) return true;
+
+    from = index + 1;
+  }
+
+  return false;
+}
+
+function resolveEstado(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  const cleaned = clean(raw);
+  if (!cleaned) return null;
+
+  const asNumber = Number(cleaned);
+  if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= MEXICO_STATES.length) {
+    return MEXICO_STATES[asNumber - 1];
+  }
+
+  const byIndex = cleaned.match(/^(\d+)\s*[.)\-:]?$/);
+  if (byIndex) {
+    const index = Number(byIndex[1]);
+    if (Number.isInteger(index) && index >= 1 && index <= MEXICO_STATES.length) {
+      return MEXICO_STATES[index - 1];
+    }
+  }
+
+  const byName = MEXICO_STATES.find((state) => clean(state.name) === cleaned);
+  if (byName) return byName;
+
+  const byAbbr = MEXICO_STATES.find((state) => state.abbr.some((abbr) => clean(abbr) === cleaned));
+  if (byAbbr) return byAbbr;
+
+  let bestState = null;
+  let bestAliasLength = 0;
+
+  for (const state of MEXICO_STATES) {
+    for (const alias of collectEstadoAliases(state)) {
+      if (alias.length <= bestAliasLength) continue;
+      if (!containsWholeWord(cleaned, alias)) continue;
+
+      bestState = state;
+      bestAliasLength = alias.length;
+    }
+  }
+
+  return bestState;
+}
+
+function resolveEstadoName(value) {
+  const estado = resolveEstado(value);
+  return estado ? estado.name : '';
+}
+
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildEstadoPattern(value) {
+  const estado = resolveEstado(value);
+  if (!estado) return '';
+
+  const aliases = collectEstadoAliases(estado);
+  if (!aliases.length) return '';
+
+  const foreignAliases = MEXICO_STATES.filter((state) => state.name !== estado.name).reduce(
+    (list, state) => list.concat(collectEstadoAliases(state)),
+    []
+  );
+
+  const branches = aliases.map((alias) => {
+    const guards = foreignAliases
+      .filter((foreign) => foreign !== alias && foreign.indexOf(alias) > 0)
+      .map((foreign) => foreign.slice(0, foreign.indexOf(alias)))
+      .filter((guard, index, list) => guard && list.indexOf(guard) === index)
+      .map((guard) => '(?<!' + escapeRegex(guard) + ')')
+      .join('');
+
+    return '\\y' + guards + escapeRegex(alias) + '\\y';
+  });
+
+  return branches.join('|');
+}
+
+function buildProfileSessionData(profile, previousData) {
+  const base = profileToData(profile);
+  const previous = previousData || {};
+
+  return {
+    ...base,
+    last_vacancies: previous.last_vacancies || [],
+    pending_vacancy: previous.pending_vacancy || null,
+    estado: previous.estado || resolveEstadoName(base.ubicacion),
+  };
+}
+
+function buildUbicacionCompleta(rawUbicacion, estadoName) {
+  const ubicacion = String(rawUbicacion || '').trim().replace(/\s+/g, ' ');
+  if (!ubicacion) return '';
+  if (!estadoName) return ubicacion;
+
+  const cleanedUbicacion = clean(ubicacion);
+  const cleanedEstado = clean(estadoName);
+
+  if (cleanedUbicacion.includes(cleanedEstado)) return ubicacion;
+
+  return ubicacion + ', ' + estadoName;
+}
+
+function locationMatchesEstado(location, estadoValue) {
+  const estado = resolveEstado(estadoValue);
+  if (!estado) return true;
+
+  const cleanedLocation = clean(location);
+  if (!cleanedLocation) return true;
+
+  if (REMOTE_LOCATION_HINTS.some((hint) => cleanedLocation.includes(hint))) return true;
+
+  const locationEstado = resolveEstado(cleanedLocation);
+
+  return !locationEstado || locationEstado.name === estado.name;
+}
+
 function getLastVacancies(data) {
   if (!data || !data.last_vacancies) return [];
 
@@ -286,6 +492,38 @@ function parseVacancySelection(text, data) {
   };
 }
 
+function isOtherPuesto(text) {
+  return (
+    text.includes('otro puesto') ||
+    text.includes('otra vacante') ||
+    text.includes('otras vacantes') ||
+    text.includes('cambiar puesto') ||
+    text.includes('buscar vacantes') ||
+    text === 'vacantes'
+  );
+}
+
+function isChangeZone(text) {
+  return (
+    text.includes('cambiar zona') ||
+    text.includes('cambiar estado') ||
+    text.includes('otra zona') ||
+    text.includes('otro estado') ||
+    text.includes('cambiar ubicacion') ||
+    text.includes('cambiar ubicación')
+  );
+}
+
+function isContinueWithoutVacancy(text) {
+  return (
+    text.includes('continuar') ||
+    text.includes('continuar sin') ||
+    text.includes('sin elegir') ||
+    text.includes('ninguna') ||
+    isNo(text)
+  );
+}
+
 const telefono = $json.telefono;
 const text = String($json.incoming_text || '').trim();
 const normalized = clean(text);
@@ -305,11 +543,15 @@ let shouldSaveSelectedVacancy = false;
 
 let candidateStatus = 'draft';
 let notifyRecruiter = false;
+let vacancyStage = null;
 
 let selectedVacancy = null;
 let selectedVacancyId = null;
 
 const registrationSteps = new Set([
+  'esperando_puesto_inicial',
+  'esperando_estado_inicial',
+  'esperando_vacante_previa',
   'esperando_nombre',
   'esperando_edad',
   'esperando_ubicacion',
@@ -337,10 +579,7 @@ const shouldShowExistingProfileMenu =
   );
 
 if (shouldShowExistingProfileMenu) {
-  data = {
-    ...profileToData(candidateProfile),
-    last_vacancies: data.last_vacancies || [],
-  };
+  data = buildProfileSessionData(candidateProfile, data);
 
   currentStep = 'menu_candidato_existente';
 }
@@ -348,10 +587,7 @@ if (shouldShowExistingProfileMenu) {
 switch (currentStep) {
   case 'bienvenida':
     if (candidateExists) {
-      data = {
-        ...profileToData(candidateProfile),
-        last_vacancies: data.last_vacancies || [],
-      };
+      data = buildProfileSessionData(candidateProfile, data);
 
       reply = buildExistingProfileMenu(data);
       nextStep = 'menu_candidato_existente';
@@ -361,14 +597,10 @@ switch (currentStep) {
     reply = `👋 ¡Hola!
 Soy Jalector 🚀
 
-Estoy aquí para ayudarte a encontrar oportunidades de trabajo que realmente se adapten a tu experiencia.
+Estoy aquí para ayudarte a encontrar oportunidades de trabajo que realmente se adapten a ti.
 
-Nos tomará menos de 2 minutos.
-
-¿Comenzamos?
-
-✅ Sí, comenzar`;
-    nextStep = 'esperando_inicio';
+` + buildPuestoPrompt();
+    nextStep = 'esperando_puesto_inicial';
     break;
 
   case 'menu_candidato_existente': {
@@ -397,6 +629,8 @@ Nos tomará menos de 2 minutos.
             : 'Si completa')
         : sessionDocs,
       last_vacancies: (data && data.last_vacancies) || [],
+      pending_vacancy: (data && data.pending_vacancy) || null,
+      estado: (data && data.estado) || resolveEstadoName(profileData.ubicacion),
     };
 
     if (
@@ -405,12 +639,19 @@ Nos tomará menos de 2 minutos.
       normalized.includes('trabajo') ||
       normalized.includes('empleo')
     ) {
+      if (!data.estado) {
+        reply = buildEstadoPrompt(data.puesto_buscado);
+        nextStep = 'esperando_estado_inicial';
+        break;
+      }
+
       shouldUpsertCandidate = true;
       shouldSearchVacancies = true;
       candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
 
       reply = `Perfecto 👍
-Estoy buscando vacantes compatibles con tu perfil...`;
+Estoy buscando vacantes en ${data.estado} compatibles con tu perfil...`;
 
       nextStep = 'esperando_interes_vacante';
       break;
@@ -441,10 +682,7 @@ Escribe tu nombre completo.`;
       normalized.includes('contacto') ||
       normalized.includes('asesor')
     ) {
-      data = {
-        ...profileToData(candidateProfile),
-        last_vacancies: data.last_vacancies || [],
-      };
+      data = buildProfileSessionData(candidateProfile, data);
 
       shouldUpsertCandidate = true;
       candidateStatus = 'interested';
@@ -465,27 +703,196 @@ En breve te contactará uno de nuestros reclutadores.`;
 
   case 'esperando_inicio':
     if (candidateExists) {
-      data = {
-        ...profileToData(candidateProfile),
-        last_vacancies: data.last_vacancies || [],
-      };
+      data = buildProfileSessionData(candidateProfile, data);
 
       reply = buildExistingProfileMenu(data);
       nextStep = 'menu_candidato_existente';
       break;
     }
 
-    if (!isYes(normalized)) {
-      reply = 'Para comenzar, responde: Sí, comenzar ✅';
+    if (!isYes(normalized) && !isGreeting(normalized) && text.length > 0) {
+      const puestoLegacy = resolvePuestoBuscado(text, normalized);
+      if (puestoLegacy && puestoLegacy.length >= 2 && !isYes(normalized)) {
+        data.puesto_buscado = puestoLegacy;
+        data.pending_vacancy = null;
+        data.last_vacancies = [];
+
+        reply = buildEstadoPrompt(puestoLegacy);
+        nextStep = 'esperando_estado_inicial';
+        break;
+      }
+    }
+
+    if (!isYes(normalized) && text.length > 0 && !isGreeting(normalized)) {
+      reply = 'Para comenzar, responde con el número del puesto o escríbelo.\n\n' + buildPuestoPrompt();
+      nextStep = 'esperando_puesto_inicial';
       break;
     }
 
-    reply = `Excelente 👍
+    reply = buildPuestoPrompt();
+    nextStep = 'esperando_puesto_inicial';
+    break;
+
+  case 'esperando_puesto_inicial': {
+    const puestoInicial = resolvePuestoBuscado(text, normalized);
+
+    if (!puestoInicial || puestoInicial.length < 2) {
+      reply = `Elige un número de la lista o escribe el puesto que buscas:
+
+` + formatJobTitlesList();
+      break;
+    }
+
+    data.puesto_buscado = puestoInicial;
+    data.pending_vacancy = null;
+    data.last_vacancies = [];
+
+    reply = buildEstadoPrompt(puestoInicial);
+    nextStep = 'esperando_estado_inicial';
+    break;
+  }
+
+  case 'esperando_estado_inicial': {
+    const estado = resolveEstado(text);
+
+    if (!estado) {
+      reply = `No identifiqué ese estado. Elige un número de la lista o escribe el nombre del estado:
+
+` + formatStatesList();
+      break;
+    }
+
+    data.estado = estado.name;
+    data.pending_vacancy = null;
+    data.last_vacancies = [];
+    shouldSearchVacancies = true;
+
+    reply = `Perfecto 👍
+Estoy buscando vacantes de ${data.puesto_buscado || 'tu perfil'} en ${estado.name}...`;
+
+    if (candidateExists) {
+      shouldUpsertCandidate = true;
+      candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    vacancyStage = 'preview';
+    candidateStatus = 'draft';
+    nextStep = 'esperando_vacante_previa';
+    break;
+  }
+
+  case 'esperando_vacante_previa': {
+    const lastVacancies = getLastVacancies(data);
+    const selected = parseVacancySelection(normalized, data);
+
+    if (isChangeZone(normalized)) {
+      data.pending_vacancy = null;
+      data.last_vacancies = [];
+      data.estado = '';
+
+      reply = buildEstadoPrompt(data.puesto_buscado);
+      nextStep = 'esperando_estado_inicial';
+      break;
+    }
+
+    if (selected) {
+      data.pending_vacancy = {
+        id: selected.vacancy.id || null,
+        title: selected.vacancy.title || '',
+        company_name: selected.vacancy.company_name || '',
+        location: selected.vacancy.location || '',
+        selected_number: selected.selected_number,
+      };
+
+      reply = `Excelente 👍
+Registré tu interés en:
+
+${selected.selected_number}️⃣ ${selected.vacancy.title || 'Vacante seleccionada'}
+🏢 Empresa: ${selected.vacancy.company_name || 'Por confirmar'}
+📍 Zona: ${selected.vacancy.location || 'Por confirmar'}
+
+Para postularte, necesitamos completar tu perfil. Nos toma menos de 2 minutos.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+      nextStep = 'esperando_nombre';
+      break;
+    }
+
+    if (isOtherPuesto(normalized)) {
+      data.pending_vacancy = null;
+      data.last_vacancies = [];
+      data.puesto_buscado = '';
+
+      reply = buildPuestoPrompt();
+      nextStep = 'esperando_puesto_inicial';
+      break;
+    }
+
+    if (lastVacancies.length > 0 && !selected && !isContinueWithoutVacancy(normalized)) {
+      reply = `Para continuar, responde con el número de la vacante que te interesa.
+
+Ejemplo: 1
+
+También puedes escribir:
+- "otro puesto"
+- "cambiar zona"
+- "continuar" (sin elegir vacante)`;
+      nextStep = 'esperando_vacante_previa';
+      break;
+    }
+
+    if (lastVacancies.length === 0) {
+      data.pending_vacancy = null;
+
+      if (text.length >= 5 && !isOtherPuesto(normalized) && !isGreeting(normalized)) {
+        data.nombre_completo = text;
+        reply = `Mucho gusto, ${firstName(text)} 😊
+
+¿Cuántos años tienes?
+
+Ejemplo:
+25`;
+        nextStep = 'esperando_edad';
+        break;
+      }
+
+      reply = `De acuerdo 👍
+Vamos a completar tu perfil para avisarte cuando haya vacantes compatibles.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+      nextStep = 'esperando_nombre';
+      break;
+    }
+
+    if (isContinueWithoutVacancy(normalized)) {
+      data.pending_vacancy = null;
+
+      reply = `De acuerdo 👍
+Vamos a completar tu perfil para avisarte cuando haya vacantes compatibles.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+      nextStep = 'esperando_nombre';
+      break;
+    }
+
+    reply = `De acuerdo 👍
+Vamos a completar tu perfil.
+
 ¿Cómo te llamas?
 
 Escribe tu nombre completo.`;
     nextStep = 'esperando_nombre';
     break;
+  }
 
   case 'esperando_nombre':
     if (text.length < 5) {
@@ -514,7 +921,7 @@ Ejemplo:
     data.edad = edad;
     reply = `Perfecto.
 
-¿En qué colonia, municipio o ciudad vives?
+${data.estado ? `¿En qué colonia o municipio de ${data.estado} vives?` : '¿En qué colonia, municipio o ciudad vives?'}
 
 Ejemplo:
 • Ecatepec
@@ -531,7 +938,7 @@ Ejemplo:
       break;
     }
 
-    data.ubicacion = text;
+    data.ubicacion = buildUbicacionCompleta(text, data.estado);
     reply = `Ahora cuéntame un poco de tu experiencia.
 
 ¿Cuál fue tu último trabajo?
@@ -551,6 +958,18 @@ Ejemplos:
     }
 
     data.ultimo_empleo = text;
+
+    if (data.puesto_buscado) {
+      reply = `¿Cuánta experiencia tienes como ${data.puesto_buscado}?
+
+1️⃣ Menos de 1 año
+2️⃣ 1 a 2 años
+3️⃣ 3 a 5 años
+4️⃣ Más de 5 años`;
+      nextStep = 'esperando_experiencia';
+      break;
+    }
+
     reply = `¿Y qué tipo de trabajo te gustaría encontrar?
 
 Responde con el número o escribe el puesto:
@@ -716,9 +1135,43 @@ Compárteme tu CURP para identificar correctamente tu perfil.`;
 
   case 'confirmacion_resumen':
     if (isYes(normalized)) {
+      const pending = data.pending_vacancy || null;
+
+      if (pending && pending.id) {
+        selectedVacancy = pending;
+        selectedVacancyId = pending.id;
+
+        data.selected_vacancy = {
+          id: pending.id,
+          title: pending.title || '',
+          company_name: pending.company_name || '',
+          location: pending.location || '',
+          selected_number: pending.selected_number || 1,
+        };
+
+        shouldUpsertCandidate = true;
+        shouldSaveSelectedVacancy = true;
+        candidateStatus = 'interested';
+        notifyRecruiter = true;
+
+        reply = `🎯 Listo, ${firstName(data.nombre_completo)} ya formas parte de la comunidad Jalector.
+
+Registré tu interés por:
+
+${pending.selected_number || 1}️⃣ ${pending.title || 'Vacante seleccionada'}
+🏢 Empresa: ${pending.company_name || 'Por confirmar'}
+📍 Zona: ${pending.location || 'Por confirmar'}
+
+En breve te contactará uno de nuestros reclutadores.`;
+
+        nextStep = 'contacto_reclutador';
+        break;
+      }
+
       shouldUpsertCandidate = true;
       shouldSearchVacancies = true;
       candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
 
       reply = `🎯 Listo, ${firstName(data.nombre_completo)} ya formas parte de la comunidad Jalector.
 
@@ -729,7 +1182,12 @@ Estoy buscando vacantes compatibles con tu perfil...`;
     }
 
     if (isCorrection(normalized)) {
-      data = {};
+      data = {
+        puesto_buscado: data.puesto_buscado || '',
+        estado: data.estado || '',
+        pending_vacancy: data.pending_vacancy || null,
+        last_vacancies: data.last_vacancies || [],
+      };
       reply = `De acuerdo, vamos a corregir la información desde el inicio.
 
 ¿Cómo te llamas?
@@ -827,6 +1285,7 @@ En breve te contactará uno de nuestros reclutadores.`;
       shouldUpsertCandidate = true;
       shouldSearchVacancies = true;
       candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
       notifyRecruiter = false;
 
       reply = `Claro 👍
@@ -846,6 +1305,7 @@ Voy a buscar otra vez vacantes compatibles con tu perfil...`;
       shouldUpsertCandidate = true;
       shouldSearchVacancies = true;
       candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
 
       reply = `Claro 👍
 Estoy buscando otras vacantes compatibles con tu perfil...`;
@@ -889,10 +1349,7 @@ También puedes escribir:
 
   case 'registro_exitoso':
     if (candidateExists) {
-      data = {
-        ...profileToData(candidateProfile),
-        last_vacancies: data.last_vacancies || [],
-      };
+      data = buildProfileSessionData(candidateProfile, data);
 
       reply = buildExistingProfileMenu(data);
       nextStep = 'menu_candidato_existente';
@@ -907,10 +1364,7 @@ Mantente atento a este WhatsApp. Aquí te compartiremos oportunidades compatible
 
   case 'contacto_reclutador':
     if (candidateExists) {
-      data = {
-        ...profileToData(candidateProfile),
-        last_vacancies: data.last_vacancies || [],
-      };
+      data = buildProfileSessionData(candidateProfile, data);
 
       reply = buildExistingProfileMenu(data);
       nextStep = 'menu_candidato_existente';
@@ -925,10 +1379,7 @@ Mantente atento a este WhatsApp.`;
 
   default:
     if (candidateExists) {
-      data = {
-        ...profileToData(candidateProfile),
-        last_vacancies: data.last_vacancies || [],
-      };
+      data = buildProfileSessionData(candidateProfile, data);
 
       reply = buildExistingProfileMenu(data);
       nextStep = 'menu_candidato_existente';
@@ -938,11 +1389,18 @@ Mantente atento a este WhatsApp.`;
     reply = `👋 ¡Hola!
 Soy Jalector 🚀
 
-Para comenzar tu registro responde:
+Estoy aquí para ayudarte a encontrar oportunidades de trabajo.
 
-✅ Sí, comenzar`;
-    nextStep = 'esperando_inicio';
+` + buildPuestoPrompt();
+    nextStep = 'esperando_puesto_inicial';
     break;
+}
+
+const estadoResuelto = data.estado || resolveEstadoName(data.ubicacion);
+const estadoPattern = buildEstadoPattern(estadoResuelto);
+
+if (estadoResuelto && !data.estado) {
+  data.estado = estadoResuelto;
 }
 
 return [
@@ -960,6 +1418,9 @@ return [
 
       candidate_status: candidateStatus,
       notify_recruiter: notifyRecruiter,
+      vacancy_stage: vacancyStage,
+      estado: estadoResuelto,
+      estado_pattern: estadoPattern,
 
       selected_vacancy_id: selectedVacancyId,
       selected_vacancy: selectedVacancy,

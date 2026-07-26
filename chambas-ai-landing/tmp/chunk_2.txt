@@ -1,0 +1,356 @@
+    if (selected) {
+      data.pending_vacancy = {
+        id: selected.vacancy.id || null,
+        title: selected.vacancy.title || '',
+        company_name: selected.vacancy.company_name || '',
+        location: selected.vacancy.location || '',
+        selected_number: selected.selected_number,
+      };
+
+      reply = `Excelente 👍
+Registré tu interés en:
+
+${selected.selected_number}️⃣ ${selected.vacancy.title || 'Vacante seleccionada'}
+🏢 Empresa: ${selected.vacancy.company_name || 'Por confirmar'}
+📍 Zona: ${selected.vacancy.location || 'Por confirmar'}
+
+Para postularte, necesitamos completar tu perfil. Nos toma menos de 2 minutos.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+      nextStep = 'esperando_nombre';
+      break;
+    }
+
+    if (isOtherPuesto(normalized)) {
+      data.pending_vacancy = null;
+      data.last_vacancies = [];
+      data.puesto_buscado = '';
+
+      reply = buildPuestoPrompt();
+      nextStep = 'esperando_puesto_inicial';
+      break;
+    }
+
+    if (lastVacancies.length === 0) {
+      data.pending_vacancy = null;
+
+      if (text.length >= 5 && !isOtherPuesto(normalized) && !isGreeting(normalized)) {
+        data.nombre_completo = text;
+        reply = `Mucho gusto, ${firstName(text)} 😊
+
+¿Cuántos años tienes?
+
+Ejemplo:
+25`;
+        nextStep = 'esperando_edad';
+        break;
+      }
+
+      reply = `De acuerdo 👍
+Vamos a completar tu perfil para avisarte cuando haya vacantes compatibles.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+      nextStep = 'esperando_nombre';
+      break;
+    }
+
+    if (isContinueWithoutVacancy(normalized)) {
+      data.pending_vacancy = null;
+
+      reply = `De acuerdo 👍
+Vamos a completar tu perfil para avisarte cuando haya vacantes compatibles.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+      nextStep = 'esperando_nombre';
+      break;
+    }
+
+    if (lastVacancies.length > 0) {
+      reply = `Para continuar, responde con el número de la vacante que te interesa.
+
+Ejemplo: 1
+
+También puedes escribir:
+- "otro puesto"
+- "continuar" (sin elegir vacante)`;
+      nextStep = 'esperando_vacante_previa';
+      break;
+    }
+
+    reply = `De acuerdo 👍
+Vamos a completar tu perfil.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+    nextStep = 'esperando_nombre';
+    break;
+  }
+
+  case 'esperando_nombre':
+    if (text.length < 5) {
+      reply = 'Por favor escribe tu nombre completo. Ejemplo: Juan Pérez García';
+      break;
+    }
+
+    data.nombre_completo = text;
+    reply = `Mucho gusto, ${firstName(text)} 😊
+
+¿Cuántos años tienes?
+
+Ejemplo:
+25`;
+    nextStep = 'esperando_edad';
+    break;
+
+  case 'esperando_edad': {
+    const edad = Number(text.replace(/\D/g, ''));
+
+    if (!Number.isInteger(edad) || edad < 18 || edad > 65) {
+      reply = 'Por favor escribe una edad válida entre 18 y 65 años. Ejemplo: 25';
+      break;
+    }
+
+    data.edad = edad;
+    reply = `Perfecto.
+
+¿En qué colonia, municipio o ciudad vives?
+
+Ejemplo:
+• Ecatepec
+• Iztapalapa
+• Nezahualcóyotl
+• Guadalajara Centro`;
+    nextStep = 'esperando_ubicacion';
+    break;
+  }
+
+  case 'esperando_ubicacion':
+    if (text.length < 3) {
+      reply = 'Por favor escribe tu colonia, municipio o ciudad.';
+      break;
+    }
+
+    data.ubicacion = text;
+    reply = `Ahora cuéntame un poco de tu experiencia.
+
+¿Cuál fue tu último trabajo?
+
+Ejemplos:
+• Guardia de seguridad
+• Auxiliar de almacén
+• Chofer repartidor
+• Cajero`;
+    nextStep = 'esperando_ultimo_empleo';
+    break;
+
+  case 'esperando_ultimo_empleo':
+    if (text.length < 3) {
+      reply = 'Por favor escribe cuál fue tu último trabajo.';
+      break;
+    }
+
+    data.ultimo_empleo = text;
+
+    if (data.puesto_buscado) {
+      reply = `¿Cuánta experiencia tienes como ${data.puesto_buscado}?
+
+1️⃣ Menos de 1 año
+2️⃣ 1 a 2 años
+3️⃣ 3 a 5 años
+4️⃣ Más de 5 años`;
+      nextStep = 'esperando_experiencia';
+      break;
+    }
+
+    reply = `¿Y qué tipo de trabajo te gustaría encontrar?
+
+Responde con el número o escribe el puesto:
+
+` + formatJobTitlesList() + `
+
+Si no está en la lista, escríbelo con tus palabras.`;
+    nextStep = 'esperando_puesto_buscado';
+    break;
+
+  case 'esperando_puesto_buscado': {
+    const puesto = resolvePuestoBuscado(text, normalized);
+    if (!puesto || puesto.length < 2) {
+      reply = `Elige un número de la lista o escribe el puesto que buscas:
+
+` + formatJobTitlesList();
+      break;
+    }
+
+    data.puesto_buscado = puesto;
+    reply = `¿Cuánta experiencia tienes en ese tipo de trabajo?
+
+1️⃣ Menos de 1 año
+2️⃣ 1 a 2 años
+3️⃣ 3 a 5 años
+4️⃣ Más de 5 años`;
+    nextStep = 'esperando_experiencia';
+    break;
+  }
+
+  case 'esperando_experiencia': {
+    const experiencia = parseExperiencia(normalized);
+
+    if (!experiencia) {
+      reply = `Responde con una opción válida:
+
+1️⃣ Menos de 1 año
+2️⃣ 1 a 2 años
+3️⃣ 3 a 5 años
+4️⃣ Más de 5 años`;
+      break;
+    }
+
+    data.experiencia = experiencia;
+    reply = `Si encontramos una vacante para ti...
+
+¿Cuándo podrías comenzar?
+
+1️⃣ Inmediatamente
+2️⃣ Esta semana
+3️⃣ En 15 días
+4️⃣ En un mes`;
+    nextStep = 'esperando_disponibilidad';
+    break;
+  }
+
+  case 'esperando_disponibilidad': {
+    const disponibilidad = parseDisponibilidad(normalized);
+
+    if (!disponibilidad) {
+      reply = `Responde con una opción válida:
+
+1️⃣ Inmediatamente
+2️⃣ Esta semana
+3️⃣ En 15 días
+4️⃣ En un mes`;
+      break;
+    }
+
+    data.disponibilidad = disponibilidad;
+    reply = `¿Qué horario prefieres?
+
+🌞 Matutino
+🌤 Vespertino
+🌙 Nocturno
+🔄 Cualquiera`;
+    nextStep = 'esperando_turno';
+    break;
+  }
+
+  case 'esperando_turno': {
+    const turno = parseTurno(normalized);
+
+    if (!turno) {
+      reply = `Responde con una opción válida:
+
+🌞 Matutino
+🌤 Vespertino
+🌙 Nocturno
+🔄 Cualquiera`;
+      break;
+    }
+
+    data.turno_preferido = turno;
+    reply = `Para ayudarte a encontrar opciones que realmente te interesen...
+
+¿Cuánto te gustaría ganar al mes?
+
+1️⃣ Menos de $10000
+2️⃣ $10000 a $15000
+3️⃣ $15000 a $20000
+4️⃣ Más de $20000`;
+    nextStep = 'esperando_expectativa_salarial';
+    break;
+  }
+
+  case 'esperando_expectativa_salarial': {
+    const salario = parseSalario(normalized);
+
+    if (!salario) {
+      reply = `Responde con una opción válida:
+
+1️⃣ Menos de $10000
+2️⃣ $10000 a $15000
+3️⃣ $15000 a $20000
+4️⃣ Más de $20000`;
+      break;
+    }
+
+    data.expectativa_salarial = salario;
+    reply = `¿Cuentas con tu documentación lista para contratación?
+
+✅ Si completa
+🟡 Me faltan algunos documentos
+❌ No la tengo completa`;
+    nextStep = 'esperando_documentacion';
+    break;
+  }
+
+  case 'esperando_documentacion': {
+    const documentacion = parseDocumentacion(normalized);
+
+    if (!documentacion) {
+      reply = `Responde con una opción válida:
+
+✅ Si completa
+🟡 Me faltan algunos documentos
+❌ No la tengo completa`;
+      break;
+    }
+
+    data.documentacion = documentacion;
+    reply = `Ya casi terminamos 🚀
+
+Compárteme tu CURP para identificar correctamente tu perfil.`;
+    nextStep = 'esperando_curp';
+    break;
+  }
+
+  case 'esperando_curp': {
+    const curp = text.toUpperCase().replace(/\s/g, '');
+
+    if (!isValidCurp(curp)) {
+      reply = 'La CURP no parece tener un formato válido. Escríbela nuevamente en mayúsculas, por favor.';
+      break;
+    }
+
+    data.curp = curp;
+    reply = buildSummary(data);
+    nextStep = 'confirmacion_resumen';
+    break;
+  }
+
+  case 'confirmacion_resumen':
+    if (isYes(normalized)) {
+      const pending = data.pending_vacancy || null;
+
+      if (pending && pending.id) {
+        selectedVacancy = pending;
+        selectedVacancyId = pending.id;
+
+        data.selected_vacancy = {
+          id: pending.id,
+          title: pending.title || '',
+          company_name: pending.company_name || '',
+          location: pending.location || '',
+          selected_number: pending.selected_number || 1,
+        };
+
+        shouldUpsertCandidate = true;
+        shouldSaveSelectedVacancy = true;
+        candidateStatus = 'interested';
+        notifyRecruiter = true;
+
+        reply = `🎯 Listo, ${firstName(

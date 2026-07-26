@@ -1,43 +1,51 @@
 const fs = require('fs');
-const t = fs.readFileSync(
-  'C:/Users/tacos/.cursor/projects/c-Users-tacos-OneDrive-Documentos-GitHub-Chambas-ai-landing-chambas-ai-landing/agent-tools/d47e36cd-6b5c-49aa-9682-14e8fbe262a5.txt',
-  'utf8'
-);
-const j = JSON.parse(t);
-const nodes = j.workflow.nodes;
-const cerebro = nodes.find((n) => n.name === 'Cerebro Jalector');
-const buscar = nodes.find((n) => n.name === 'Buscar vacantes compatibles');
-const email = nodes.find((n) => n.name === 'Buscar email empresa');
-const js = cerebro?.parameters?.jsCode || '';
-const qBuscar = JSON.stringify(buscar?.parameters || {});
-const qEmail = JSON.stringify(email?.parameters || {});
-const needle = "lower(coalesce($2, '')) = 'cualquiera'";
+const path = require('path');
 
-function findQuery(obj, acc = []) {
-  if (!obj || typeof obj !== 'object') return acc;
-  for (const [k, v] of Object.entries(obj)) {
-    if (typeof v === 'string' && (v.includes('SELECT') || v.includes('select') || v.includes('coalesce') || v.includes('ALTER'))) {
-      acc.push({ k, snippet: v.slice(0, 400) });
-    } else if (typeof v === 'object') {
-      findQuery(v, acc);
-    }
+const raw = fs.readFileSync(process.argv[2], 'utf8');
+const j = JSON.parse(raw.slice(raw.indexOf('{')));
+const wf = j.workflow || j;
+const active = wf.activeVersion || {};
+const nodes = active.nodes || wf.nodes || [];
+const conns = active.connections || wf.connections || {};
+
+console.log('active', wf.active);
+console.log('versionId === activeVersionId', wf.versionId === wf.activeVersionId);
+
+const interesting = [
+  'Buscar vacantes?',
+  '¿Registrar antes de buscar?',
+  'Guardar candidato',
+  'Buscar vacantes compatibles',
+  'Construir mensaje de vacantes',
+  'Actualizar sesión con last_vacancies',
+];
+
+for (const name of interesting) {
+  const v = conns[name];
+  if (!v) {
+    console.log(name, '(no outbound)');
+    continue;
   }
-  return acc;
+  const outs = (v.main || [])
+    .map((br, i) => '  [' + i + '] -> ' + (br || []).map((x) => x.node).join(', '))
+    .join('\n');
+  console.log(name);
+  console.log(outs || '  (empty)');
 }
 
-const checks = {
-  update_workflow: 'success',
-  publish_workflow: 'success',
-  cerebro_Ayudante_general: js.includes('Ayudante general') ? 'success' : 'failure',
-  cerebro_Lavaloza: js.includes('Lavaloza') ? 'success' : 'failure',
-  cerebro_Voy_a_buscar: js.includes('Voy a buscar otra vez vacantes') ? 'success' : 'failure',
-  buscar_cualquiera: qBuscar.includes(needle) ? 'success' : 'failure',
-  email_no_ALTER: !qEmail.includes('ALTER TABLE') ? 'success' : 'failure',
-  jsLen: js.length,
-  active: j.workflow.active,
-  activeVersionId: j.workflow.activeVersionId,
-};
+const cerebro = nodes.find((n) => n.name === 'Cerebro Jalector');
+const msg = nodes.find((n) => n.name === 'Construir mensaje de vacantes');
+const sql = nodes.find((n) => n.name === 'Buscar vacantes compatibles');
+const localCerebro = fs.readFileSync(path.join(__dirname, 'cerebro.js'), 'utf8');
 
-console.log(JSON.stringify(checks, null, 2));
-console.log('buscar queries:', JSON.stringify(findQuery(buscar?.parameters), null, 2));
-console.log('email queries:', JSON.stringify(findQuery(email?.parameters), null, 2));
+const cerebroCode = (cerebro && cerebro.parameters && cerebro.parameters.jsCode) || '';
+const sqlParams = JSON.stringify((sql && sql.parameters) || {});
+
+console.log('--- checks activeVersion ---');
+console.log('cerebro identico al repo', cerebroCode === localCerebro);
+console.log('cerebro MEXICO_STATES', cerebroCode.includes('MEXICO_STATES'));
+console.log('cerebro esperando_estado_inicial', cerebroCode.includes('esperando_estado_inicial'));
+console.log('cerebro estado_pattern', cerebroCode.includes('estado_pattern'));
+console.log('sql filtra por $4', sqlParams.includes('~ $4'));
+console.log('sql recibe estado_pattern', sqlParams.includes('estado_pattern'));
+console.log('msg usa estado', ((msg && msg.parameters && msg.parameters.jsCode) || '').includes('candidato.estado'));

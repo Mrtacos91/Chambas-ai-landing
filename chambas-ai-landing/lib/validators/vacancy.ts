@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isCanonicalVacancyLocation } from "@/lib/vacancies/domain/mexico-locations";
 
 const optionalText = z
   .string()
@@ -16,6 +17,24 @@ const optionalMoney = z
     return Math.round(parsed);
   });
 
+const optionalLocation = z
+  .string()
+  .trim()
+  .max(2000)
+  .optional()
+  .refine(
+    (value) => {
+      if (value == null || value.length === 0) return true;
+      return isCanonicalVacancyLocation(value);
+    },
+    {
+      message:
+        'Usa el formato "Ciudad, Estado" o "Remoto" con una entidad federativa válida',
+    },
+  )
+  .transform((value) => (value && value.length > 0 ? value : null));
+
+
 export const vacancyFormSchema = z
   .object({
     title: z
@@ -27,7 +46,7 @@ export const vacancyFormSchema = z
         message: "Escribe el nombre del puesto en Otro",
       }),
     description: optionalText,
-    location: optionalText,
+    location: optionalLocation,
     schedule: optionalText,
     salaryMin: optionalMoney,
     salaryMax: optionalMoney,
@@ -54,6 +73,7 @@ export const vacancyFormSchema = z
       path: ["salaryMax"],
     },
   );
+
 
 export const updateVacancySchema = vacancyFormSchema.extend({
   id: z.string().uuid("Vacante inválida"),

@@ -1,0 +1,277 @@
+data.nombre_completo)} ya formas parte de la comunidad Jalector.
+
+Registré tu interés por:
+
+${pending.selected_number || 1}️⃣ ${pending.title || 'Vacante seleccionada'}
+🏢 Empresa: ${pending.company_name || 'Por confirmar'}
+📍 Zona: ${pending.location || 'Por confirmar'}
+
+En breve te contactará uno de nuestros reclutadores.`;
+
+        nextStep = 'contacto_reclutador';
+        break;
+      }
+
+      shouldUpsertCandidate = true;
+      shouldSearchVacancies = true;
+      candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
+
+      reply = `🎯 Listo, ${firstName(data.nombre_completo)} ya formas parte de la comunidad Jalector.
+
+Estoy buscando vacantes compatibles con tu perfil...`;
+
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    if (isCorrection(normalized)) {
+      const savedPuesto = data.puesto_buscado || '';
+      const savedPending = data.pending_vacancy || null;
+      data = {
+        puesto_buscado: savedPuesto,
+        pending_vacancy: savedPending,
+        last_vacancies: data.last_vacancies || [],
+      };
+      reply = `De acuerdo, vamos a corregir la información desde el inicio.
+
+¿Cómo te llamas?
+
+Escribe tu nombre completo.`;
+      nextStep = 'esperando_nombre';
+      break;
+    }
+
+    reply = `Responde con una opción:
+
+✅ Sí, continuar
+✏️ Corregir información`;
+    break;
+
+  case 'esperando_interes_vacante': {
+    const selected = parseVacancySelection(normalized, data);
+    const lastVacancies = getLastVacancies(data);
+
+    if (selected) {
+      selectedVacancy = selected.vacancy;
+      selectedVacancyId = selected.vacancy.id || null;
+
+      data.selected_vacancy = {
+        id: selectedVacancy.id || null,
+        title: selectedVacancy.title || '',
+        company_name: selectedVacancy.company_name || '',
+        location: selectedVacancy.location || '',
+        selected_number: selected.selected_number,
+      };
+
+      shouldUpsertCandidate = true;
+      shouldSaveSelectedVacancy = true;
+      candidateStatus = 'interested';
+      notifyRecruiter = true;
+
+      reply = `Perfecto 👍
+
+Registré tu interés por esta vacante:
+
+${selected.selected_number}️⃣ ${selectedVacancy.title || 'Vacante seleccionada'}
+🏢 Empresa: ${selectedVacancy.company_name || 'Por confirmar'}
+📍 Zona: ${selectedVacancy.location || 'Por confirmar'}
+
+En breve te contactará uno de nuestros reclutadores.`;
+
+      nextStep = 'contacto_reclutador';
+      break;
+    }
+
+    if (isYes(normalized) || normalized.includes('interesa')) {
+      if (lastVacancies.length > 1) {
+        reply = `Perfecto 👍
+Para continuar, dime cuál vacante te interesa.
+
+Responde con el número de la vacante.
+Ejemplo: 1`;
+        nextStep = 'esperando_interes_vacante';
+        break;
+      }
+
+      if (lastVacancies.length === 1) {
+        const vacancy = lastVacancies[0];
+
+        selectedVacancy = vacancy;
+        selectedVacancyId = vacancy.id || null;
+
+        data.selected_vacancy = {
+          id: vacancy.id || null,
+          title: vacancy.title || '',
+          company_name: vacancy.company_name || '',
+          location: vacancy.location || '',
+          selected_number: 1,
+        };
+
+        shouldUpsertCandidate = true;
+        shouldSaveSelectedVacancy = true;
+        candidateStatus = 'interested';
+        notifyRecruiter = true;
+
+        reply = `Perfecto 👍
+
+Registré tu interés por esta vacante:
+
+1️⃣ ${vacancy.title || 'Vacante seleccionada'}
+🏢 Empresa: ${vacancy.company_name || 'Por confirmar'}
+📍 Zona: ${vacancy.location || 'Por confirmar'}
+
+En breve te contactará uno de nuestros reclutadores.`;
+
+        nextStep = 'contacto_reclutador';
+        break;
+      }
+
+      shouldUpsertCandidate = true;
+      shouldSearchVacancies = true;
+      candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
+      notifyRecruiter = false;
+
+      reply = `Claro 👍
+Voy a buscar otra vez vacantes compatibles con tu perfil...`;
+
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    if (
+      normalized.includes('ver vacantes') ||
+      normalized.includes('otra vacante') ||
+      normalized.includes('otras vacantes') ||
+      normalized.includes('buscar vacantes') ||
+      normalized === 'vacantes'
+    ) {
+      shouldUpsertCandidate = true;
+      shouldSearchVacancies = true;
+      candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
+
+      reply = `Claro 👍
+Estoy buscando otras vacantes compatibles con tu perfil...`;
+
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    if (isNo(normalized)) {
+      shouldUpsertCandidate = true;
+      candidateStatus = 'registered';
+
+      reply = `Entendido 👍
+
+Te compartiremos otras vacantes que se adapten mejor a tu perfil.`;
+
+      nextStep = 'registro_exitoso';
+      break;
+    }
+
+    if (lastVacancies.length > 0) {
+      reply = `Para continuar, responde con el número de la vacante que te interesa.
+
+Ejemplo: 1
+
+También puedes escribir:
+- "otras vacantes"
+- "no por ahora"
+- "reclutador"`;
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    reply = `¿Te interesa hablar con un reclutador?
+
+✅ Sí, me interesa
+❌ No por ahora`;
+    nextStep = 'esperando_interes_vacante';
+    break;
+  }
+
+  case 'registro_exitoso':
+    if (candidateExists) {
+      data = {
+        ...profileToData(candidateProfile),
+        last_vacancies: data.last_vacancies || [],
+        pending_vacancy: data.pending_vacancy || null,
+      };
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `Tu registro ya está completo 👍
+
+Mantente atento a este WhatsApp. Aquí te compartiremos oportunidades compatibles con tu perfil.`;
+    nextStep = 'registro_exitoso';
+    break;
+
+  case 'contacto_reclutador':
+    if (candidateExists) {
+      data = {
+        ...profileToData(candidateProfile),
+        last_vacancies: data.last_vacancies || [],
+        pending_vacancy: data.pending_vacancy || null,
+      };
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `Tu solicitud ya fue enviada a nuestros reclutadores 👍
+
+Mantente atento a este WhatsApp.`;
+    nextStep = 'contacto_reclutador';
+    break;
+
+  default:
+    if (candidateExists) {
+      data = {
+        ...profileToData(candidateProfile),
+        last_vacancies: data.last_vacancies || [],
+        pending_vacancy: data.pending_vacancy || null,
+      };
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `👋 ¡Hola!
+Soy Jalector 🚀
+
+Estoy aquí para ayudarte a encontrar oportunidades de trabajo.
+
+` + buildPuestoPrompt();
+    nextStep = 'esperando_puesto_inicial';
+    break;
+}
+
+return [
+  {
+    json: {
+      telefono,
+      current_step: currentStep,
+      next_step: nextStep,
+      data,
+      reply,
+
+      should_upsert_candidate: shouldUpsertCandidate,
+      should_search_vacancies: shouldSearchVacancies,
+      should_save_selected_vacancy: shouldSaveSelectedVacancy,
+
+      candidate_status: candidateStatus,
+      notify_recruiter: notifyRecruiter,
+      vacancy_stage: vacancyStage,
+
+      selected_vacancy_id: selectedVacancyId,
+      selected_vacancy: selectedVacancy,
+    },
+  },
+];
