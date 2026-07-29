@@ -29,6 +29,7 @@ import {
   createActivationCheckoutSession,
   isStripeBillingEnabled,
 } from "@/lib/billing/stripe";
+import { getAppOrigin } from "@/lib/app-origin";
 import type { AuthEventType } from "@/lib/auth/types";
 import type { Json } from "@/types/database";
 
@@ -39,14 +40,7 @@ export interface ActionResult<T = unknown> {
   data?: T;
 }
 
-const getOrigin = async () => {
-  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (envUrl) return envUrl.replace(/\/$/, "");
-  const headerStore = await headers();
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
-  const proto = headerStore.get("x-forwarded-proto") ?? "https";
-  return host ? `${proto}://${host}` : "https://jalector.com";
-};
+const getOrigin = getAppOrigin;
 
 const authFailureMessage = (fallback: string, detail?: string) => {
   if (process.env.NODE_ENV !== "production" && detail) {
