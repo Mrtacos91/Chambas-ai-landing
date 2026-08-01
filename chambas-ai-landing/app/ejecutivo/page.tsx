@@ -404,8 +404,11 @@ function buildStats(
   const outboundMessages = rows.reduce((total, row) => total + row.outboundMessages, 0);
   const completedProfiles = rows.filter((row) => row.profile_completed_at || row.completeness >= 90).length;
   const activeLast7Days = rows.filter((row) => isWithinDays(row.lastActivity, 7)).length;
-  const withVacancyInterest = rows.filter((row) => row.selectedVacancies.length > 0).length;
   const shownMatches = rows.reduce((total, row) => total + row.matchedVacancies.length, 0);
+  const withVacancyInterest = rows.filter((row) => row.selectedVacancies.length > 0).length;
+  const pipelineRows = rows.filter(
+    (row) => row.matchedVacancies.length > 0 || row.selectedVacancies.length > 0,
+  ).length;
   const averageCompletion = rows.length
     ? Math.round(rows.reduce((total, row) => total + row.completeness, 0) / rows.length)
     : 0;
@@ -422,6 +425,10 @@ function buildStats(
       : 0,
     openVacancies: vacancies.filter((vacancy) => vacancy.active !== false).length,
     outboundMessages,
+    pipelineRows,
+    sessionToMatchRate: sessions.length
+      ? Math.round((rows.filter((row) => row.matchedVacancies.length > 0).length / sessions.length) * 100)
+      : 0,
     shownMatches,
     totalCandidates: rows.length,
     totalSessions: sessions.length,

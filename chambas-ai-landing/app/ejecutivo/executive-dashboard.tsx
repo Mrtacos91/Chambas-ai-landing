@@ -114,6 +114,8 @@ export type DashboardStats = {
   matchToInterestRate: number;
   openVacancies: number;
   outboundMessages: number;
+  pipelineRows: number;
+  sessionToMatchRate: number;
   shownMatches: number;
   totalCandidates: number;
   totalSessions: number;
@@ -321,7 +323,7 @@ export default function ExecutiveDashboard({
               <DataErrorNotice errors={dataErrors} />
             ) : null}
 
-            <section className="grid gap-3 py-5 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-3 py-5 sm:grid-cols-2 xl:grid-cols-5">
               <MetricCard
                 detail={`${stats.totalSessions} sesiones de chat`}
                 icon={UsersRound}
@@ -329,22 +331,28 @@ export default function ExecutiveDashboard({
                 value={stats.totalCandidates}
               />
               <MetricCard
-                detail={`${stats.completionRate}% de avance global`}
+                detail={`${stats.sessionToMatchRate}% sesión a match`}
+                icon={BriefcaseBusiness}
+                label="Matches mostrados"
+                value={stats.shownMatches}
+              />
+              <MetricCard
+                detail={`${stats.matchToInterestRate}% match a interés`}
+                icon={Target}
+                label="Con interés"
+                value={stats.withVacancyInterest}
+              />
+              <MetricCard
+                detail="Filas en embudo empresa"
                 icon={CheckCircle2}
-                label="Perfiles completos"
-                value={stats.completedProfiles}
+                label="En pipeline CRM"
+                value={stats.pipelineRows}
               />
               <MetricCard
                 detail="Requieren acción comercial"
                 icon={CalendarClock}
                 label="Seguimientos"
                 value={stats.highPriority}
-              />
-              <MetricCard
-                detail={`${stats.matchToInterestRate}% pasan a selección`}
-                icon={BriefcaseBusiness}
-                label="Matches mostrados"
-                value={stats.shownMatches}
               />
             </section>
 
@@ -416,11 +424,11 @@ function RadarModule({
   stats: DashboardStats;
 }) {
   const funnel = [
-    { label: "Capturados", value: stats.totalCandidates },
+    { label: "Sesiones", value: stats.totalSessions },
+    { label: "Perfiles", value: stats.totalCandidates },
     { label: "Matches mostrados", value: stats.shownMatches },
-    { label: "Activos 7 días", value: stats.activeLast7Days },
-    { label: "Perfil completo", value: stats.completedProfiles },
-    { label: "Vacantes elegidas", value: stats.withVacancyInterest },
+    { label: "Con interés", value: stats.withVacancyInterest },
+    { label: "En pipeline CRM", value: stats.pipelineRows },
   ];
   const max = Math.max(...funnel.map((item) => item.value), 1);
 
@@ -487,21 +495,21 @@ function RadarModule({
       <div className="executive-card grid gap-3 sm:grid-cols-3 xl:col-span-2">
         <InsightTile
           icon={Target}
-          label="Conversión a interés"
+          label="Sesión a match"
+          value={`${stats.sessionToMatchRate}%`}
+          text="Candidatos con vacante mostrada vs sesiones."
+        />
+        <InsightTile
+          icon={TrendingUp}
+          label="Match a interés"
           value={`${stats.matchToInterestRate}%`}
           text="Vacantes seleccionadas contra matches mostrados."
         />
         <InsightTile
-          icon={MessageCircle}
-          label="Balance de mensajes"
-          value={`${stats.inboundMessages}/${stats.outboundMessages}`}
-          text="Entrantes contra respuestas enviadas."
-        />
-        <InsightTile
           icon={Gauge}
-          label="Capacidad activa"
-          value={rows.filter((row) => row.followUp === "Baja").length}
-          text="Perfiles con riesgo bajo de seguimiento."
+          label="En pipeline CRM"
+          value={stats.pipelineRows}
+          text="Filas visibles para empresas en el embudo."
         />
       </div>
     </div>

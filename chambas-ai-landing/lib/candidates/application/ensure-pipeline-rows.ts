@@ -12,6 +12,14 @@ type PipelineSeed = {
   lastActivityAt: string;
 };
 
+const ADVANCED_STAGES = new Set<HiringStage>([
+  "contactado",
+  "entrevista",
+  "oferta",
+  "contratado",
+  "descartado",
+]);
+
 export const ensurePipelineRowsForCompany = async (
   client: Client,
   companyId: string,
@@ -86,49 +94,78 @@ export const ensurePipelineRowsForCompany = async (
     last_activity_at: seed.lastActivityAt,
   }));
 
-  const { error } = await client.from("vacancy_candidate_pipeline").upsert(payload, {
-    onConflict: "vacancy_id,candidate_phone",
-    ignoreDuplicates: true,
-  });
+  for (const row of payload) {
+    const { data: existing, error: existingError } = await client
+      .from("vacancy_candidate_pipeline")
+      .select("id, stage, has_interest, source, last_activity_at")
+      .eq("vacancy_id", row.vacancy_id)
+      .eq("candidate_phone", row.candidate_phone)
+      .maybeSingle();
 
-  if (error) {
-    throw new Error(error.message);
-  }
+    if (existingError) {
+      throw new Error(existingError.message);
+    }
 
-  const interestUpdates = payload.filter((row) => row.has_interest);
-  if (interestUpdates.length === 0) {
-    return;
-  }
-
-  await Promise.all(
-    interestUpdates.map(async (row) => {
-      const { data: existing } = await client
-        .from("vacancy_candidate_pipeline")
-        .select("id, stage, has_interest")
-        .eq("vacancy_id", row.vacancy_id)
-        .eq("candidate_phone", row.candidate_phone)
-        .maybeSingle();
-
-      if (!existing) return;
-
-      const nextStage =
-        existing.stage === "nuevo" && !existing.has_interest
-          ? "interesado"
-          : existing.stage;
-
-      if (existing.has_interest && existing.stage === nextStage) {
-        return;
+    if (!existing) {
+      const { error } = await client.from("vacancy_candidate_pipeline").insert(row);
+      if (error) {
+        throw new Error(error.message);
       }
+      continue;
+    }
 
-      await client
+    const existingStage = existing.stage as HiringStage;
+    const nextStage =
+      row.has_interest && existingStage === "nuevo" ? "interesado" : existingStage;
+    const nextHasInterest = existing.has_interest || row.has_interest;
+    const nextSource: PipelineSource =
+      nextHasInterest || existing.source === "interest"
+        ? "interest"
+        : ((existing.source as PipelineSource) ?? row.source);
+    const nextActivity =
+      existing.last_activity_at && existing.last_activity_at > row.last_activity_at
+        ? existing.last_activity_at
+        : row.last_activity_at;
+
+    const shouldUpdate =
+      existing.has_interest !== nextHasInterest ||
+      existing.stage !== nextStage ||
+      existing.source !== nextSource ||
+      existing.last_activity_at !== nextActivity;
+
+    if (!shouldUpdate) {
+      continue;
+    }
+
+    if (ADVANCED_STAGES.has(existingStage) && existingStage !== nextStage) {
+      const { error } = await client
         .from("vacancy_candidate_pipeline")
         .update({
-          has_interest: true,
-          source: "interest",
-          stage: nextStage,
+          has_interest: nextHasInterest,
+          source: nextSource,
+          last_activity_at: nextActivity,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
-    }),
-  );
+      if (error) {
+        throw new Error(error.message);
+      }
+      continue;
+    }
+
+    const { error } = await client
+      .from("vacancy_candidate_pipeline")
+      .update({
+        has_interest: nextHasInterest,
+        source: nextSource,
+        stage: nextStage,
+        last_activity_at: nextActivity,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
 };

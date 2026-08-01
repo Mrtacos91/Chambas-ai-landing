@@ -51,6 +51,19 @@ const toWhatsAppUrl = (phone: string): string => {
   return `https://wa.me/${digits}`;
 };
 
+const isStaleActivity = (iso: string | null, hours: number): boolean => {
+  if (!iso) return true;
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return true;
+  return Date.now() - ts > hours * 60 * 60 * 1000;
+};
+
+const staleLabel = (iso: string | null): string | null => {
+  if (isStaleActivity(iso, 72)) return "Sin respuesta 72h+";
+  if (isStaleActivity(iso, 24)) return "Sin respuesta 24h+";
+  return null;
+};
+
 export const CandidatesModule = ({
   candidates,
   vacancies,
@@ -60,7 +73,9 @@ export const CandidatesModule = ({
 }) => {
   const [query, setQuery] = useState("");
   const [vacancyFilter, setVacancyFilter] = useState("all");
-  const [stageFilter, setStageFilter] = useState<HiringStage | "all">("all");
+  const [stageFilter, setStageFilter] = useState<HiringStage | "all" | "followup">(
+    "followup",
+  );
   const [onlyInterest, setOnlyInterest] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rows, setRows] = useState(candidates);
@@ -81,25 +96,51 @@ export const CandidatesModule = ({
     return counts;
   }, [rows]);
 
+  const needsFollowUpCount = useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          (row.stage === "nuevo" || row.stage === "interesado") &&
+          isStaleActivity(row.lastActivity, 24),
+      ).length,
+    [rows],
+  );
+
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (vacancyFilter !== "all" && row.vacancyId !== vacancyFilter) return false;
-      if (stageFilter !== "all" && row.stage !== stageFilter) return false;
-      if (onlyInterest && !row.hasInterest) return false;
-      if (!term) return true;
-      return [
-        row.nombreCompleto,
-        row.telefono,
-        row.ubicacion,
-        row.puestoBuscado,
-        row.experiencia,
-        row.vacancyTitle,
-        row.notes,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term));
-    });
+    const sorted = rows
+      .filter((row) => {
+        if (vacancyFilter !== "all" && row.vacancyId !== vacancyFilter) return false;
+        if (stageFilter === "followup") {
+          if (row.stage !== "nuevo" && row.stage !== "interesado") return false;
+        } else if (stageFilter !== "all" && row.stage !== stageFilter) {
+          return false;
+        }
+        if (onlyInterest && !row.hasInterest) return false;
+        if (!term) return true;
+        return [
+          row.nombreCompleto,
+          row.telefono,
+          row.ubicacion,
+          row.puestoBuscado,
+          row.experiencia,
+          row.vacancyTitle,
+          row.notes,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .slice();
+
+    if (stageFilter === "followup") {
+      sorted.sort((a, b) => {
+        const aTime = a.lastActivity ? new Date(a.lastActivity).getTime() : 0;
+        const bTime = b.lastActivity ? new Date(b.lastActivity).getTime() : 0;
+        return aTime - bTime;
+      });
+    }
+
+    return sorted;
   }, [rows, query, vacancyFilter, stageFilter, onlyInterest]);
 
   const selected = useMemo(
@@ -171,6 +212,17 @@ export const CandidatesModule = ({
       <div className="flex gap-2 overflow-x-auto pb-1">
         <button
           className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+            stageFilter === "followup"
+              ? "border-[var(--brand-green)] bg-[var(--brand-green)] text-white"
+              : "border-[var(--line)] bg-[var(--surface)] text-[var(--muted)]"
+          }`}
+          onClick={() => setStageFilter("followup")}
+          type="button"
+        >
+          Requieren seguimiento ({needsFollowUpCount})
+        </button>
+        <button
+          className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition ${
             stageFilter === "all"
               ? "border-[var(--brand-green)] bg-[var(--brand-green)] text-white"
               : "border-[var(--line)] bg-[var(--surface)] text-[var(--muted)]"
@@ -180,7 +232,7 @@ export const CandidatesModule = ({
         >
           Todos ({rows.length})
         </button>
-        {HIRING_PIPELINE_ORDER.map((stage) => (
+        {HIRING_PIPELINE_ORDER.filter((stage) => stage !== "descartado").map((stage) => (
           <button
             className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition ${
               stageFilter === stage
@@ -275,18 +327,28 @@ export const CandidatesModule = ({
                     <td className="px-4 py-4 align-top">
                       {row.hasInterest ? (
                         <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                          Sí
+                          Interesado
                         </span>
                       ) : (
-                        <span className="text-[var(--muted)]">Match</span>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                          Solo mostrado
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${stageBadgeClass(row.stage)}`}
-                      >
-                        {HIRING_STAGE_LABELS[row.stage]}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${stageBadgeClass(row.stage)}`}
+                        >
+                          {HIRING_STAGE_LABELS[row.stage]}
+                        </span>
+                        {(row.stage === "nuevo" || row.stage === "interesado") &&
+                        staleLabel(row.lastActivity) ? (
+                          <span className="w-fit rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                            {staleLabel(row.lastActivity)}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-4 py-4 align-top">
                       <p>{row.puestoBuscado || "Sin puesto"}</p>
@@ -446,7 +508,16 @@ const CandidateDrawer = ({
             <InfoItem label="Documentación" value={row.documentacion} />
             <InfoItem
               label="Interés en vacante"
-              value={row.hasInterest ? "Sí" : "Solo match"}
+              value={row.hasInterest ? "Interesado" : "Solo mostrado"}
+            />
+            <InfoItem
+              label="Seguimiento"
+              value={
+                (row.stage === "nuevo" || row.stage === "interesado") &&
+                staleLabel(row.lastActivity)
+                  ? staleLabel(row.lastActivity)
+                  : "Al día"
+              }
             />
             <InfoItem label="Perfil" value={`${row.completeness}% completo`} />
           </dl>

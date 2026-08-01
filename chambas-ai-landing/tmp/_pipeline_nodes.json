@@ -1,0 +1,60 @@
+[
+  {
+    "name": "Crear o buscar sesión",
+    "tables": [
+      "candidate_sessions"
+    ],
+    "query": "insert into public.candidate_sessions (\n  telefono,\n  current_step,\n  data,\n  last_message_id,\n  last_interaction_at\n)\nvalues (\n  $1,\n  'bienvenida',\n  '{}'::jsonb,\n  $2,\n  now()\n)\non conflict (telefono) do update set\n  last_message_id = excluded.last_message_id,\n  last_interaction_at = now(),\n  updated_at = now()\nreturning\n  telefono,\n  current_step,\n  data,\n  $2::text as message_id,\n  $3::text as incoming_text,\n  $4::text as message_type;",
+    "type": "n8n-nodes-base.postgres"
+  },
+  {
+    "name": "Cerebro Jalector",
+    "tables": [],
+    "query": "",
+    "type": "n8n-nodes-base.code"
+  },
+  {
+    "name": "Guardar sesión",
+    "tables": [
+      "candidate_sessions"
+    ],
+    "query": "update public.candidate_sessions\nset\n  current_step = $1,\n  data = $2::jsonb,\n  updated_at = now(),\n  last_interaction_at = now()\nwhere telefono = $3\nreturning *;",
+    "type": "n8n-nodes-base.postgres"
+  },
+  {
+    "name": "Construir mensaje de vacantes",
+    "tables": [],
+    "query": "",
+    "type": "n8n-nodes-base.code"
+  },
+  {
+    "name": "Leer memoria candidato",
+    "tables": [
+      "candidate_sessions"
+    ],
+    "query": "select\n  s.telefono,\n  s.current_step,\n  s.data,\n  s.last_message_id,\n  $2::text as incoming_text,\n  $3::text as message_type,\n\n  case\n    when c.id is not null then true\n    else false\n  end as candidate_exists,\n\n  to_jsonb(c) as candidate_profile\n\nfrom public.candidate_sessions s\nleft join public.candidates c\n  on c.telefono = s.telefono\nwhere s.telefono = $1\nlimit 1;",
+    "type": "n8n-nodes-base.postgres"
+  },
+  {
+    "name": "Actualizar sesión con last_vacancies",
+    "tables": [
+      "candidate_sessions"
+    ],
+    "query": "update public.candidate_sessions set data = data || jsonb_build_object('last_vacancies', $1::jsonb), updated_at = now() where telefono = $2;",
+    "type": "n8n-nodes-base.postgres"
+  },
+  {
+    "name": "¿Guardar interés en vacante?",
+    "tables": [],
+    "query": "",
+    "type": "n8n-nodes-base.if"
+  },
+  {
+    "name": "Guardar interés empresa",
+    "tables": [
+      "candidate_selected_vacancies"
+    ],
+    "query": "insert into public.candidate_selected_vacancies (\n  candidate_phone,\n  vacancy_id,\n  status,\n  created_at\n)\nvalues (\n  $1,\n  $2::uuid,\n  'interested',\n  now()\n)\non conflict (candidate_phone, vacancy_id) do update\nset\n  status = 'interested',\n  created_at = now()\nreturning *;",
+    "type": "n8n-nodes-base.postgres"
+  }
+]
