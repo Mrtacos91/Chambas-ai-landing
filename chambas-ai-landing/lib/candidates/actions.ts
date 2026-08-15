@@ -2,11 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireUsuario } from "@/lib/auth/guards";
+import { requireCompanyAdmin, requireUsuario } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { HIRING_STAGES } from "@/lib/candidates/domain/hiring-stages";
+import { TEMPLATE_STAGES } from "@/lib/candidates/domain/hiring-message-templates";
 import { updatePipelineNotes } from "@/lib/candidates/application/update-pipeline-notes";
 import { updatePipelineStage } from "@/lib/candidates/application/update-pipeline-stage";
+import {
+  listHiringMessageTemplates,
+  upsertHiringMessageTemplates,
+} from "@/lib/candidates/application/manage-hiring-message-templates";
+import type { HiringMessageTemplateMap } from "@/lib/candidates/domain/hiring-message-templates";
 
 interface ActionResult {
   ok: boolean;
@@ -21,6 +27,13 @@ const stageSchema = z.object({
 const notesSchema = z.object({
   pipelineId: z.string().uuid(),
   notes: z.string().max(4000),
+});
+
+const templatesSchema = z.object({
+  contactado: z.string().max(1500),
+  entrevista: z.string().max(1500),
+  contratado: z.string().max(1500),
+  descartado: z.string().max(1500),
 });
 
 export const updateCandidateStage = async (input: {
@@ -75,6 +88,72 @@ export const updateCandidateNotes = async (input: {
     return {
       ok: false,
       error: error instanceof Error ? error.message : "No pudimos guardar la nota.",
+    };
+  }
+};
+
+export const getCompanyHiringMessageTemplates = async (): Promise<
+  ActionResult & { templates?: HiringMessageTemplateMap }
+> => {
+  const { membership } = await requireUsuario();
+  try {
+    const supabase = await createClient();
+    const templates = await listHiringMessageTemplates(
+      supabase,
+      membership.companyId,
+    );
+    return { ok: true, templates };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "No pudimos cargar las plantillas.",
+    };
+  }
+};
+
+export const saveCompanyHiringMessageTemplates = async (input: {
+  templates: HiringMessageTemplateMap;
+}): Promise<ActionResult & { templates?: HiringMessageTemplateMap }> => {
+  const { membership } = await requireCompanyAdmin();
+  const parsed = templatesSchema.safeParse(input.templates);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Revisa el texto de las plantillas (máx. 1500 caracteres).",
+    };
+  }
+
+  const normalized: HiringMessageTemplateMap = {
+    contactado: parsed.data.contactado,
+    entrevista: parsed.data.entrevista,
+    contratado: parsed.data.contratado,
+    descartado: parsed.data.descartado,
+  };
+
+  for (const stage of TEMPLATE_STAGES) {
+    if (!(stage in normalized)) {
+      return { ok: false, error: "Faltan etapas en las plantillas." };
+    }
+  }
+
+  try {
+    const supabase = await createClient();
+    const templates = await upsertHiringMessageTemplates(supabase, {
+      companyId: membership.companyId,
+      templates: normalized,
+    });
+    revalidatePath("/cliente");
+    return { ok: true, templates };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "No pudimos guardar las plantillas.",
     };
   }
 };

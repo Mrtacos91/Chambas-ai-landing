@@ -1,0 +1,202 @@
+      break;
+      }
+
+      if (lastVacancies.length === 1) {
+        const vacancy = lastVacancies[0];
+
+        selectedVacancy = vacancy;
+        selectedVacancyId = vacancy.id || null;
+
+        data.selected_vacancy = {
+          id: vacancy.id || null,
+          title: vacancy.title || '',
+          company_name: vacancy.company_name || '',
+          location: vacancy.location || '',
+          selected_number: 1,
+        };
+
+        shouldUpsertCandidate = true;
+        shouldSaveSelectedVacancy = true;
+        candidateStatus = 'interested';
+        notifyRecruiter = true;
+
+        reply = `Perfecto 👍
+
+Registré tu interés por esta vacante:
+
+1️⃣ ${vacancy.title || 'Vacante seleccionada'}
+🏢 Empresa: ${vacancy.company_name || 'Por confirmar'}
+📍 Zona: ${vacancy.location || 'Por confirmar'}
+
+En breve te contactará uno de nuestros reclutadores.`;
+
+        nextStep = 'contacto_reclutador';
+        break;
+      }
+
+      shouldUpsertCandidate = true;
+      shouldSearchVacancies = true;
+      candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
+      notifyRecruiter = false;
+
+      reply = `Claro 👍
+Voy a buscar otra vez vacantes compatibles con tu perfil...`;
+
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    if (
+      normalized.includes('ver vacantes') ||
+      normalized.includes('otra vacante') ||
+      normalized.includes('otras vacantes') ||
+      normalized.includes('buscar vacantes') ||
+      normalized === 'vacantes'
+    ) {
+      shouldUpsertCandidate = true;
+      shouldSearchVacancies = true;
+      candidateStatus = 'registered';
+      vacancyStage = 'post_registro';
+
+      reply = `Claro 👍
+Estoy buscando otras vacantes compatibles con tu perfil...`;
+
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    if (isNo(normalized)) {
+      shouldUpsertCandidate = true;
+      candidateStatus = 'registered';
+
+      reply = `Entendido 👍
+
+Te compartiremos otras vacantes que se adapten mejor a tu perfil.`;
+
+      nextStep = 'registro_exitoso';
+      break;
+    }
+
+    if (lastVacancies.length > 0) {
+      reply = `Para continuar, responde con el número de la vacante que te interesa.
+
+Ejemplo: 1
+
+También puedes escribir:
+- "otras vacantes"
+- "no por ahora"
+- "reclutador"`;
+      nextStep = 'esperando_interes_vacante';
+      break;
+    }
+
+    reply = `¿Te interesa hablar con un reclutador?
+
+✅ Sí, me interesa
+❌ No por ahora`;
+    nextStep = 'esperando_interes_vacante';
+    break;
+  }
+
+  case 'registro_exitoso':
+    if (candidateExists) {
+      data = buildProfileSessionData(candidateProfile, data);
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `Tu registro ya está completo 👍
+
+Mantente atento a este WhatsApp. Aquí te compartiremos oportunidades compatibles con tu perfil.`;
+    nextStep = 'registro_exitoso';
+    break;
+
+  case 'contacto_reclutador':
+    if (candidateExists) {
+      data = buildProfileSessionData(candidateProfile, data);
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `Tu solicitud ya fue enviada a nuestros reclutadores 👍
+
+Mantente atento a este WhatsApp.`;
+    nextStep = 'contacto_reclutador';
+    break;
+
+  default:
+    if (candidateExists) {
+      data = buildProfileSessionData(candidateProfile, data);
+
+      reply = buildExistingProfileMenu(data);
+      nextStep = 'menu_candidato_existente';
+      break;
+    }
+
+    reply = `👋 ¡Hola!
+Soy Jalector 🚀
+
+Estoy aquí para ayudarte a encontrar oportunidades de trabajo.
+
+` + buildPuestoPrompt();
+    nextStep = 'esperando_puesto_inicial';
+    break;
+}
+
+const estadoResuelto = data.estado || resolveEstadoName(data.ubicacion);
+const estadoPattern = buildEstadoPattern(estadoResuelto);
+
+if (estadoResuelto && !data.estado) {
+  data.estado = estadoResuelto;
+}
+
+if (data.nombre_completo) {
+  const safeName = sanitizePersonName(data.nombre_completo);
+  if (safeName) data.nombre_completo = safeName;
+  else delete data.nombre_completo;
+}
+
+if (data.puesto_buscado) {
+  const safePuesto = sanitizePuesto(data.puesto_buscado);
+  if (safePuesto) data.puesto_buscado = safePuesto;
+}
+
+if (data.expectativa_salarial) {
+  data.expectativa_salarial = sanitizeSalary(data.expectativa_salarial);
+}
+
+candidateStatus = sanitizeCandidateStatus(candidateStatus);
+
+if (shouldSaveSelectedVacancy && !selectedVacancyId) {
+  shouldSaveSelectedVacancy = false;
+}
+
+return [
+  {
+    json: {
+      telefono,
+      current_step: currentStep,
+      next_step: nextStep,
+      data,
+      reply,
+
+      should_upsert_candidate: shouldUpsertCandidate,
+      should_search_vacancies: shouldSearchVacancies,
+      should_save_selected_vacancy: shouldSaveSelectedVacancy,
+
+      candidate_status: candidateStatus,
+      notify_recruiter: notifyRecruiter,
+      vacancy_stage: vacancyStage,
+      estado: estadoResuelto,
+      estado_pattern: estadoPattern,
+
+      selected_vacancy_id: selectedVacancyId,
+      selected_vacancy: selectedVacancy,
+    },
+  },
+];

@@ -1,0 +1,18 @@
+{
+  "updateStatus": 200,
+  "publishStatus": 200,
+  "updatePreview": "{\n  \"workflowId\": \"zphHtNEzhuCM2J6W\",\n  \"name\": \"WA - Jalector Registro Candidatos\",\n  \"nodeCount\": 23,\n  \"url\": \"https://bot.jalector.com/workflow/zphHtNEzhuCM2J6W\",\n  \"appliedOperations\": 1,\n  \"autoAssignedCredentials\": [],\n  \"validationWarnings\": []\n}",
+  "publishPreview": "{\"success\":true,\"workflowId\":\"zphHtNEzhuCM2J6W\",\"activeVersionId\":\"73b0133c-5de7-4c25-a6b3-13787a7e4070\"}",
+  "activeVersionId": "73b0133c-5de7-4c25-a6b3-13787a7e4070",
+  "versionId": "73b0133c-5de7-4c25-a6b3-13787a7e4070",
+  "jsCodeLen": 53055,
+  "localLen": 53055,
+  "identical": true,
+  "markers": {
+    "puesto_parece_pregunta": true,
+    "experiencia_invalida": true,
+    "registerInvalid": true,
+    "No tengo vacantes cargadas": true
+  },
+  "success": true
+}

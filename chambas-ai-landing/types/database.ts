@@ -352,6 +352,26 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["vacancy_candidate_pipeline"]["Insert"]>;
         Relationships: [];
       };
+      company_hiring_message_templates: {
+        Row: {
+          id: string;
+          company_id: string;
+          stage: string;
+          body: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          stage: string;
+          body?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["company_hiring_message_templates"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  ChevronDown,
+  Loader2,
   MessageCircle,
   Search,
   X,
@@ -8,6 +10,7 @@ import {
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import {
+  saveCompanyHiringMessageTemplates,
   updateCandidateNotes,
   updateCandidateStage,
 } from "@/lib/candidates/actions";
@@ -18,6 +21,16 @@ import {
   QUICK_STAGE_ACTIONS,
   type HiringStage,
 } from "@/lib/candidates/domain/hiring-stages";
+import {
+  DEFAULT_HIRING_MESSAGE_TEMPLATES,
+  TEMPLATE_STAGES,
+  TEMPLATE_VARIABLES,
+  buildWhatsAppUrl,
+  isTemplateStage,
+  renderHiringMessageTemplate,
+  type HiringMessageTemplateMap,
+  type TemplateStage,
+} from "@/lib/candidates/domain/hiring-message-templates";
 import type { VacancyRecord } from "@/lib/vacancies/domain/vacancy";
 
 const dateFormatter = new Intl.DateTimeFormat("es-MX", {
@@ -46,11 +59,6 @@ const stageBadgeClass = (stage: HiringStage): string => {
   }
 };
 
-const toWhatsAppUrl = (phone: string): string => {
-  const digits = phone.replace(/\D/g, "");
-  return `https://wa.me/${digits}`;
-};
-
 const isStaleActivity = (iso: string | null, hours: number): boolean => {
   if (!iso) return true;
   const ts = new Date(iso).getTime();
@@ -64,11 +72,21 @@ const staleLabel = (iso: string | null): string | null => {
   return null;
 };
 
+const stageActionLabel = (stage: HiringStage): string =>
+  QUICK_STAGE_ACTIONS.find((action) => action.stage === stage)?.label ??
+  HIRING_STAGE_LABELS[stage];
+
 export const CandidatesModule = ({
+  canManageTemplates,
   candidates,
+  companyName,
+  messageTemplates,
   vacancies,
 }: {
+  canManageTemplates: boolean;
   candidates: CompanyHiringPipelineRow[];
+  companyName: string;
+  messageTemplates: HiringMessageTemplateMap;
   vacancies: VacancyRecord[];
 }) => {
   const [query, setQuery] = useState("");
@@ -79,12 +97,17 @@ export const CandidatesModule = ({
   const [onlyInterest, setOnlyInterest] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rows, setRows] = useState(candidates);
+  const [templates, setTemplates] = useState(messageTemplates);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setRows(candidates);
   }, [candidates]);
+
+  useEffect(() => {
+    setTemplates(messageTemplates);
+  }, [messageTemplates]);
 
   const stageCounts = useMemo(() => {
     const counts = Object.fromEntries(
@@ -152,9 +175,27 @@ export const CandidatesModule = ({
     setSelectedId(null);
   }, []);
 
-  const changeStage = (pipelineId: string, stage: HiringStage) => {
+  const openWhatsAppWithTemplate = (
+    row: CompanyHiringPipelineRow,
+    stage: TemplateStage,
+  ) => {
+    const template = templates[stage]?.trim() || DEFAULT_HIRING_MESSAGE_TEMPLATES[stage];
+    const message = renderHiringMessageTemplate(template, {
+      nombre: row.nombreCompleto,
+      vacante: row.vacancyTitle,
+      empresa: companyName,
+    });
+    window.open(buildWhatsAppUrl(row.telefono, message), "_blank", "noopener,noreferrer");
+  };
+
+  const changeStage = (
+    pipelineId: string,
+    stage: HiringStage,
+    options?: { openWhatsApp?: boolean },
+  ) => {
     setError(null);
     const previous = rows;
+    const target = rows.find((row) => row.id === pipelineId);
     setRows((current) =>
       current.map((row) =>
         row.id === pipelineId
@@ -162,6 +203,11 @@ export const CandidatesModule = ({
           : row,
       ),
     );
+
+    if (options?.openWhatsApp && target && isTemplateStage(stage)) {
+      openWhatsAppWithTemplate(target, stage);
+    }
+
     startTransition(async () => {
       const result = await updateCandidateStage({ pipelineId, stage });
       if (!result.ok) {
@@ -183,6 +229,21 @@ export const CandidatesModule = ({
         setRows(previous);
         setError(result.error ?? "No se pudo guardar la nota.");
       }
+    });
+  };
+
+  const saveTemplates = (next: HiringMessageTemplateMap) => {
+    setError(null);
+    const previous = templates;
+    setTemplates(next);
+    startTransition(async () => {
+      const result = await saveCompanyHiringMessageTemplates({ templates: next });
+      if (!result.ok) {
+        setTemplates(previous);
+        setError(result.error ?? "No se pudieron guardar las plantillas.");
+        return;
+      }
+      if (result.templates) setTemplates(result.templates);
     });
   };
 
@@ -208,6 +269,13 @@ export const CandidatesModule = ({
           />
         </label>
       </div>
+
+      <MessageTemplatesPanel
+        canManage={canManageTemplates}
+        pending={pending}
+        templates={templates}
+        onSave={saveTemplates}
+      />
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         <button
@@ -371,12 +439,149 @@ export const CandidatesModule = ({
 
       {selected ? (
         <CandidateDrawer
+          companyName={companyName}
           onClose={closeDrawer}
           onSaveNotes={saveNotes}
           onStageChange={changeStage}
           pending={pending}
           row={selected}
+          templates={templates}
         />
+      ) : null}
+    </div>
+  );
+};
+
+const MessageTemplatesPanel = ({
+  canManage,
+  pending,
+  templates,
+  onSave,
+}: {
+  canManage: boolean;
+  pending: boolean;
+  templates: HiringMessageTemplateMap;
+  onSave: (templates: HiringMessageTemplateMap) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [activeStage, setActiveStage] = useState<TemplateStage>("contactado");
+  const [draft, setDraft] = useState(templates);
+
+  useEffect(() => {
+    setDraft(templates);
+  }, [templates]);
+
+  const dirty = TEMPLATE_STAGES.some((stage) => draft[stage] !== templates[stage]);
+
+  const insertVariable = (key: string) => {
+    const token = `{{${key}}}`;
+    setDraft((prev) => ({
+      ...prev,
+      [activeStage]: `${prev[activeStage]}${prev[activeStage].endsWith(" ") || !prev[activeStage] ? "" : " "}${token}`,
+    }));
+  };
+
+  return (
+    <div className="executive-card overflow-hidden rounded-[22px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+      <button
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+        onClick={() => setOpen((value) => !value)}
+        type="button"
+      >
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--brand-green)]">
+            Plantillas WhatsApp
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Un clic en Contactar, Entrevista, Contratar o Descartar abre WhatsApp con el
+            mensaje de esa etapa.
+          </p>
+        </div>
+        <ChevronDown
+          className={`shrink-0 text-[var(--muted)] transition ${open ? "rotate-180" : ""}`}
+          size={18}
+        />
+      </button>
+
+      {open ? (
+        <div className="space-y-4 border-t border-[var(--line)] px-5 py-4">
+          <div className="flex flex-wrap gap-2">
+            {TEMPLATE_STAGES.map((stage) => (
+              <button
+                className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                  activeStage === stage
+                    ? "border-[var(--brand-green)] bg-[var(--surface-soft)] text-[var(--foreground)]"
+                    : "border-[var(--line)] text-[var(--muted)]"
+                }`}
+                key={stage}
+                onClick={() => setActiveStage(stage)}
+                type="button"
+              >
+                {stageActionLabel(stage)}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {TEMPLATE_VARIABLES.map((variable) => (
+              <button
+                className="rounded-lg border border-[var(--line)] bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-medium disabled:opacity-50"
+                disabled={!canManage || pending}
+                key={variable.key}
+                onClick={() => insertVariable(variable.key)}
+                type="button"
+              >
+                {`{{${variable.key}}}`} · {variable.label}
+              </button>
+            ))}
+          </div>
+
+          <label className="auth-label">
+            Mensaje · {stageActionLabel(activeStage)}
+            <textarea
+              className="auth-input min-h-32"
+              disabled={!canManage || pending}
+              maxLength={1500}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  [activeStage]: event.target.value,
+                }))
+              }
+              placeholder={DEFAULT_HIRING_MESSAGE_TEMPLATES[activeStage]}
+              value={draft[activeStage]}
+            />
+            <span className="text-xs text-[var(--muted)]">
+              {draft[activeStage].length}/1500
+            </span>
+          </label>
+
+          {canManage ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="auth-primary-button !w-auto min-h-11 px-5"
+                disabled={pending || !dirty}
+                onClick={() => onSave(draft)}
+                type="button"
+              >
+                {pending ? <Loader2 className="auth-spinner" size={16} /> : null}
+                Guardar plantillas
+              </button>
+              <button
+                className="inline-flex min-h-11 items-center rounded-xl border border-[var(--line)] px-4 text-sm font-semibold disabled:opacity-50"
+                disabled={pending}
+                onClick={() => setDraft({ ...DEFAULT_HIRING_MESSAGE_TEMPLATES })}
+                type="button"
+              >
+                Restaurar sugeridas
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--muted)]">
+              Solo el administrador puede editar las plantillas.
+            </p>
+          )}
+        </div>
       ) : null}
     </div>
   );
@@ -385,14 +590,22 @@ export const CandidatesModule = ({
 const CandidateDrawer = ({
   row,
   pending,
+  companyName,
+  templates,
   onClose,
   onStageChange,
   onSaveNotes,
 }: {
   row: CompanyHiringPipelineRow;
   pending: boolean;
+  companyName: string;
+  templates: HiringMessageTemplateMap;
   onClose: () => void;
-  onStageChange: (pipelineId: string, stage: HiringStage) => void;
+  onStageChange: (
+    pipelineId: string,
+    stage: HiringStage,
+    options?: { openWhatsApp?: boolean },
+  ) => void;
   onSaveNotes: (pipelineId: string, notes: string) => void;
 }) => {
   const [notes, setNotes] = useState(row.notes);
@@ -423,6 +636,15 @@ const CandidateDrawer = ({
 
   if (!mounted) return null;
 
+  const previewFor = (stage: TemplateStage) => {
+    const template = templates[stage]?.trim() || DEFAULT_HIRING_MESSAGE_TEMPLATES[stage];
+    return renderHiringMessageTemplate(template, {
+      nombre: row.nombreCompleto,
+      vacante: row.vacancyTitle,
+      empresa: companyName,
+    });
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-[100] flex justify-end bg-black/35 p-0 sm:p-4">
       <button
@@ -452,27 +674,37 @@ const CandidateDrawer = ({
         </div>
 
         <div className="space-y-5 p-5">
-          <div className="flex flex-wrap gap-2">
-            <a
-              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--brand-green)] px-4 text-sm font-semibold text-white"
-              href={toWhatsAppUrl(row.telefono)}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <MessageCircle size={16} />
-              WhatsApp
-            </a>
-            {QUICK_STAGE_ACTIONS.map((action) => (
-              <button
-                className="inline-flex min-h-11 items-center rounded-full border border-[var(--line)] bg-[var(--surface-soft)] px-4 text-sm font-semibold disabled:opacity-60"
-                disabled={pending || row.stage === action.stage}
-                key={action.stage}
-                onClick={() => onStageChange(row.id, action.stage)}
-                type="button"
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <a
+                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--brand-green)] px-4 text-sm font-semibold text-white"
+                href={buildWhatsAppUrl(row.telefono)}
+                rel="noreferrer"
+                target="_blank"
               >
-                {action.label}
-              </button>
-            ))}
+                <MessageCircle size={16} />
+                WhatsApp
+              </a>
+              {QUICK_STAGE_ACTIONS.map((action) => (
+                <button
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--surface-soft)] px-4 text-sm font-semibold disabled:opacity-60"
+                  disabled={pending || row.stage === action.stage}
+                  key={action.stage}
+                  onClick={() =>
+                    onStageChange(row.id, action.stage, { openWhatsApp: true })
+                  }
+                  title={previewFor(action.stage)}
+                  type="button"
+                >
+                  <MessageCircle size={14} />
+                  {action.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-[var(--muted)]">
+              Contactar, Entrevista, Contratar y Descartar actualizan la etapa y abren
+              WhatsApp con la plantilla lista para enviar.
+            </p>
           </div>
 
           <label className="block space-y-2">

@@ -409,6 +409,12 @@ function buildStats(
   const pipelineRows = rows.filter(
     (row) => row.matchedVacancies.length > 0 || row.selectedVacancies.length > 0,
   ).length;
+  const invalidAttemptSessions = sessions.filter((session) => {
+    const payload = session.data;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+    const attempts = Number((payload as Record<string, unknown>).invalid_attempts ?? 0);
+    return Number.isFinite(attempts) && attempts >= 2;
+  }).length;
   const averageCompletion = rows.length
     ? Math.round(rows.reduce((total, row) => total + row.completeness, 0) / rows.length)
     : 0;
@@ -420,6 +426,7 @@ function buildStats(
     completionRate: rows.length ? Math.round((completedProfiles / rows.length) * 100) : 0,
     highPriority: rows.filter((row) => row.followUp === "Alta").length,
     inboundMessages,
+    invalidAttemptSessions,
     matchToInterestRate: shownMatches
       ? Math.round((rows.reduce((total, row) => total + row.selectedVacancies.length, 0) / shownMatches) * 100)
       : 0,

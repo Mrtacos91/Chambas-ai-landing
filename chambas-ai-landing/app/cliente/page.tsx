@@ -3,6 +3,7 @@ import { requireClient } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@/lib/supabase/admin";
 import { listCompanyHiringPipeline } from "@/lib/candidates/application/list-company-hiring-pipeline";
+import { listHiringMessageTemplates } from "@/lib/candidates/application/manage-hiring-message-templates";
 import { listCompanyVacancies } from "@/lib/vacancies/application/manage-vacancies";
 import {
   ClientDashboard,
@@ -31,21 +32,23 @@ const ClientePage = async ({
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  const [vacancies, pipeline, membersResult, invitationsResult] = await Promise.all([
-    listCompanyVacancies(supabase, membership.companyId),
-    listCompanyHiringPipeline(supabase, membership.companyId),
-    supabase
-      .from("company_users")
-      .select("id, user_id, role, created_at")
-      .eq("company_id", membership.companyId)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("company_invitations")
-      .select("id, email, role, expires_at")
-      .eq("company_id", membership.companyId)
-      .is("accepted_at", null)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [vacancies, pipeline, messageTemplates, membersResult, invitationsResult] =
+    await Promise.all([
+      listCompanyVacancies(supabase, membership.companyId),
+      listCompanyHiringPipeline(supabase, membership.companyId),
+      listHiringMessageTemplates(supabase, membership.companyId),
+      supabase
+        .from("company_users")
+        .select("id, user_id, role, created_at")
+        .eq("company_id", membership.companyId)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("company_invitations")
+        .select("id, email, role, expires_at")
+        .eq("company_id", membership.companyId)
+        .is("accepted_at", null)
+        .order("created_at", { ascending: false }),
+    ]);
 
   const members = membersResult.data ?? [];
   const memberIds = members.map((row) => row.user_id);
@@ -82,6 +85,7 @@ const ClientePage = async ({
           email: profile?.email ?? null,
         };
       })}
+      messageTemplates={messageTemplates}
       stats={{
         activeVacancies: vacancies.filter((row) => row.active).length,
         candidateCount: uniquePhones.size,

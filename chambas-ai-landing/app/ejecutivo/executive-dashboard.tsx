@@ -111,6 +111,7 @@ export type DashboardStats = {
   completionRate: number;
   highPriority: number;
   inboundMessages: number;
+  invalidAttemptSessions: number;
   matchToInterestRate: number;
   openVacancies: number;
   outboundMessages: number;
@@ -323,7 +324,7 @@ export default function ExecutiveDashboard({
               <DataErrorNotice errors={dataErrors} />
             ) : null}
 
-            <section className="grid gap-3 py-5 sm:grid-cols-2 xl:grid-cols-5">
+            <section className="grid gap-3 py-5 sm:grid-cols-2 xl:grid-cols-6">
               <MetricCard
                 detail={`${stats.totalSessions} sesiones de chat`}
                 icon={UsersRound}
@@ -353,6 +354,12 @@ export default function ExecutiveDashboard({
                 icon={CalendarClock}
                 label="Seguimientos"
                 value={stats.highPriority}
+              />
+              <MetricCard
+                detail="Sesiones con 2+ respuestas invalidas"
+                icon={AlertCircle}
+                label="Friccion chatbot"
+                value={stats.invalidAttemptSessions}
               />
             </section>
 
@@ -429,6 +436,7 @@ function RadarModule({
     { label: "Matches mostrados", value: stats.shownMatches },
     { label: "Con interés", value: stats.withVacancyInterest },
     { label: "En pipeline CRM", value: stats.pipelineRows },
+    { label: "Friccion 2+ intentos", value: stats.invalidAttemptSessions },
   ];
   const max = Math.max(...funnel.map((item) => item.value), 1);
 
@@ -493,6 +501,12 @@ function RadarModule({
       </div>
 
       <div className="executive-card grid gap-3 sm:grid-cols-3 xl:col-span-2">
+        <InsightTile
+          icon={AlertCircle}
+          label="Friccion chatbot"
+          value={stats.invalidAttemptSessions}
+          text="Sesiones con 2 o mas respuestas invalidas seguidas."
+        />
         <InsightTile
           icon={Target}
           label="Sesión a match"

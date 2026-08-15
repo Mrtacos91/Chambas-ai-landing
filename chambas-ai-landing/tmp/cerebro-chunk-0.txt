@@ -1,0 +1,435 @@
+function clean(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+function safeJsonParse(value, fallback = {}) {
+  if (!value) return fallback;
+
+  if (typeof value === 'object') return value;
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function toBoolean(value) {
+  if (value === true) return true;
+  if (value === false) return false;
+  if (String(value).toLowerCase() === 'true') return true;
+  return false;
+}
+
+function cleanDisplayText(value) {
+  return String(value || '')
+    .replace(/[\n\r\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function sanitizePersonName(value) {
+  const text = cleanDisplayText(value);
+  if (text.length < 3 || text.length > 80) return '';
+  const lower = clean(text);
+  if (
+    lower.startsWith('hola') ||
+    lower.startsWith('buenos') ||
+    lower.startsWith('buenas') ||
+    lower.startsWith('me ') ||
+    lower.includes('informacion') ||
+    lower.includes('vacante') ||
+    lower.includes('empleo') ||
+    lower.includes('trabajo') ||
+    lower.includes('continuar') ||
+    lower.includes('podria')
+  ) {
+    return '';
+  }
+  return text;
+}
+
+function sanitizePuesto(value) {
+  const text = cleanDisplayText(value);
+  if (text.length < 2 || text.length > 80) return '';
+  const lower = clean(text);
+  if (
+    lower.includes('informacion') ||
+    lower.includes('informes') ||
+    lower.includes('regalar') ||
+    lower.includes('podria') ||
+    lower.startsWith('me ')
+  ) {
+    return '';
+  }
+  return text;
+}
+
+function sanitizeSalary(value) {
+  const text = cleanDisplayText(value).replace(/,/g, '');
+  if (!text) return '';
+  if (text === 'Menos de $10' || text === 'Menos de $15' || /^\$\d{1,2}$/.test(text)) {
+    if (text.includes('15') || text === '$15') return 'Menos de $15000';
+    if (text.includes('10') || text === '$10') return 'Menos de $10000';
+  }
+  return text;
+}
+
+function sanitizeCandidateStatus(value) {
+  const allowed = new Set(['draft', 'registered', 'interested', 'active']);
+  const raw = cleanDisplayText(value).toLowerCase();
+  if (allowed.has(raw)) return raw;
+  if (raw === 'si' || raw === 'sí') return 'interested';
+  return 'registered';
+}
+
+function resolveInterestVacancy(data) {
+  const pending = data && data.pending_vacancy;
+  if (pending && pending.id) return pending;
+  const last = getLastVacancies(data);
+  if (last.length > 0 && last[0] && last[0].id) return last[0];
+  return null;
+}
+
+function isPlaceLikeName(value) {
+  const lower = clean(value);
+  return (
+    lower.includes('estado de') ||
+    lower.includes('municipio') ||
+    lower.includes('ciudad de') ||
+    lower === 'cdmx' ||
+    lower === 'edomex' ||
+    !!resolveEstado(value)
+  );
+}
+
+function isQuestionLike(value) {
+  const text = cleanDisplayText(value);
+  const lower = clean(text);
+  if (text.includes('?')) return true;
+  return (
+    lower.includes('disculp') ||
+    lower.includes('informacion') ||
+    lower.includes('informes') ||
+    lower.includes('tendra') ||
+    lower.includes('donde') ||
+    lower.includes('cuando') ||
+    lower.includes('como') ||
+    lower.includes('cuanto') ||
+    lower.startsWith('me interesa') ||
+    lower.startsWith('quiero') ||
+    lower.includes('regala') ||
+    lower.includes('podria')
+  );
+}
+
+function isVacancyHelpQuestion(value) {
+  const lower = clean(value);
+  return (
+    lower.includes('vacante') ||
+    lower.includes('empresa') ||
+    lower.includes('ubicacion') ||
+    lower.includes('ubicacion') ||
+    lower.includes('direccion') ||
+    lower.includes('horario') ||
+    lower.includes('sueldo') ||
+    lower.includes('salario') ||
+    (lower.includes('donde') && (lower.includes('queda') || lower.includes('esta')))
+  );
+}
+
+function isEscapeCommand(normalized) {
+  return (
+    normalized === 'ayuda' ||
+    normalized === 'menu' ||
+    normalized === 'menú' ||
+    normalized.includes('empezar de nuevo') ||
+    normalized.includes('reiniciar') ||
+    normalized === '0'
+  );
+}
+
+function isSkipCurp(normalized) {
+  return (
+    normalized.includes('continuar sin curp') ||
+    normalized.includes('sin curp') ||
+    normalized.includes('omitir curp') ||
+    normalized === 'saltar'
+  );
+}
+
+function registerInvalid(data, reason) {
+  const attempts = Number(data.invalid_attempts || 0) + 1;
+  data.invalid_attempts = attempts;
+  data.last_invalid_reason = reason;
+  return attempts;
+}
+
+function resetInvalid(data) {
+  data.invalid_attempts = 0;
+  data.last_invalid_reason = null;
+}
+
+function escapeMenuReply() {
+  return `Para ayudarte, elige una opcion:
+
+1️ Empezar de nuevo
+2️ Hablar con un reclutador
+3️ Seguir con la pregunta actual
+
+Tambien puedes escribir: ayuda`;
+}
+
+function buildRetryReply(base, attempts) {
+  if (attempts >= 2) {
+    return base + '\n\n' + escapeMenuReply();
+  }
+  return base;
+}
+
+
+function firstName(nombre) {
+  return String(nombre || 'candidato').split(' ')[0];
+}
+
+function isGreeting(text) {
+  return (
+    text === 'hola' ||
+    text === 'buenos dias' ||
+    text === 'buenas tardes' ||
+    text === 'buenas noches' ||
+    text === 'hey' ||
+    text === 'hello'
+  );
+}
+
+function isYes(text) {
+  return (
+    text.includes('si') ||
+    text.includes('comenzar') ||
+    text.includes('continuar') ||
+    text.includes('me interesa') ||
+    text === '1'
+  );
+}
+
+function isNo(text) {
+  return (
+    text.includes('no') ||
+    text.includes('no gracias') ||
+    text.includes('no por ahora') ||
+    text.includes('despues') ||
+    text.includes('después')
+  );
+}
+
+function isCorrection(text) {
+  return (
+    text.includes('corregir') ||
+    text.includes('editar') ||
+    text.includes('actualizar') ||
+    text === '2'
+  );
+}
+
+function optionNumber(text) {
+  const raw = String(text || '').trim();
+  const cleaned = clean(raw);
+  const match = cleaned.match(/^([1-4])(?![0-9])/);
+  if (match) return Number(match[1]);
+  return null;
+}
+
+function parseExperiencia(text) {
+  const n = optionNumber(text);
+  if (n === 1 || text.includes('menos')) return 'Menos de 1 año';
+  if (n === 2 || text.includes('1 a 2')) return '1 a 2 años';
+  if (n === 3 || text.includes('3 a 5')) return '3 a 5 años';
+  if (n === 4 || text.includes('mas')) return 'Más de 5 años';
+  return null;
+}
+
+function parseDisponibilidad(text) {
+  const n = optionNumber(text);
+  if (n === 1 || text.includes('inmediatamente')) return 'Inmediatamente';
+  if (n === 2 || text.includes('esta semana')) return 'Esta semana';
+  if (n === 3 || text.includes('15')) return 'En 15 días';
+  if (n === 4 || text.includes('mes')) return 'En un mes';
+  return null;
+}
+
+function parseTurno(text) {
+  const n = optionNumber(text);
+  if (n === 1 || text.includes('matutino') || text.includes('manana')) return 'Matutino';
+  if (n === 2 || text.includes('vespertino') || text.includes('tarde')) return 'Vespertino';
+  if (n === 3 || text.includes('nocturno') || text.includes('noche')) return 'Nocturno';
+  if (n === 4 || text.includes('cualquiera')) return 'Cualquiera';
+  if (text.includes('matutino') || text.includes('manana')) return 'Matutino';
+  if (text.includes('vespertino') || text.includes('tarde')) return 'Vespertino';
+  if (text.includes('nocturno') || text.includes('noche')) return 'Nocturno';
+  if (text.includes('cualquiera')) return 'Cualquiera';
+  return null;
+}
+
+function parseSalario(text) {
+  const n = optionNumber(text);
+  if (n === 1 || text.includes('menos')) return 'Menos de $10000';
+  if (n === 2 || text.includes('10000') || text.includes('10,000') || text.includes('10.000')) return '$10000 a $15000';
+  if (n === 3 || text.includes('15000') || text.includes('15,000') || text.includes('15.000')) return '$15000 a $20000';
+  if (n === 4 || text.includes('20000') || text.includes('20,000') || text.includes('20.000') || text.includes('mas')) return 'Más de $20000';
+  return null;
+}
+
+function parseDocumentacion(text) {
+  if (text.includes('faltan') || text.includes('algunos')) return 'Me faltan algunos documentos';
+  if (text.includes('completa') || text.includes('si')) return 'Si completa';
+  if (text.includes('no')) return 'No la tengo completa';
+  return null;
+}
+
+
+const JOB_TITLES = [
+  'Almacenista',
+  'Analista de datos',
+  'Asistente administrativo',
+  'Auxiliar administrativo',
+  'Ayudante de almacén',
+  'Ayudante de cocina',
+  'Ayudante general',
+  'Bartender',
+  'Cajero',
+  'Cajera',
+  'Chofer',
+  'Cocinero',
+  'Community manager',
+  'Desarrollador de software',
+  'Diseñador gráfico',
+  'Diseñador UI/UX',
+  'Electricista',
+  'Guardia de seguridad',
+  'Hostess',
+  'Lavaloza',
+  'Limpieza',
+  'Mesero',
+  'Mesera',
+  'Montacargas',
+  'Recepcionista',
+  'Repartidor',
+  'Soporte técnico',
+  'Supervisor de piso',
+  'Ventas',
+];
+
+function formatJobTitlesList() {
+  return JOB_TITLES.map((title, index) => (index + 1) + '. ' + title).join('\n');
+}
+
+function resolvePuestoBuscado(rawText, cleanedText) {
+  const text = String(rawText || '').trim();
+  if (!text) return null;
+
+  const asNumber = Number(cleanedText);
+  if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= JOB_TITLES.length) {
+    return JOB_TITLES[asNumber - 1];
+  }
+
+  const matchByIndex = cleanedText.match(/^(\d+)\s*[.)\-:]?/);
+  if (matchByIndex) {
+    const index = Number(matchByIndex[1]);
+    if (Number.isInteger(index) && index >= 1 && index <= JOB_TITLES.length) {
+      return JOB_TITLES[index - 1];
+    }
+  }
+
+  const catalogHit = JOB_TITLES.find((title) => clean(title) === cleanedText);
+  if (catalogHit) return catalogHit;
+
+  return text.replace(/\s+/g, ' ');
+}
+
+function isValidCurp(value) {
+  const curp = String(value || '').trim().toUpperCase();
+  const regex = /^[A-Z][AEIOUX][A-Z]{2}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]\d$/;
+  return regex.test(curp);
+}
+
+function profileToData(profile) {
+  if (!profile) return {};
+
+  return {
+    nombre_completo: profile.nombre_completo || '',
+    edad: profile.edad || '',
+    ubicacion: profile.ubicacion || '',
+    ultimo_empleo: profile.ultimo_empleo || '',
+    puesto_buscado: profile.puesto_buscado || '',
+    experiencia: profile.experiencia || '',
+    disponibilidad: profile.disponibilidad || '',
+    turno_preferido: profile.turno_preferido || '',
+    expectativa_salarial: profile.expectativa_salarial || '',
+    documentacion: profile.documentacion || '',
+    curp: profile.curp || '',
+    source: profile.source || 'whatsapp',
+    campaign: profile.campaign || 'organic',
+    medium: profile.medium || 'whatsapp'
+  };
+}
+
+function buildSummary(data) {
+  return `Perfecto 👍
+Esto es lo que registré:
+
+👤 Nombre: ${data.nombre_completo || ''}
+📍 Zona: ${data.ubicacion || ''}
+💼 Último empleo: ${data.ultimo_empleo || ''}
+🎯 Puesto buscado: ${data.puesto_buscado || ''}
+📈 Experiencia: ${data.experiencia || ''}
+⏰ Disponibilidad: ${data.disponibilidad || ''}
+🌐 Turno preferido: ${data.turno_preferido || ''}
+💰 Expectativa salarial: ${data.expectativa_salarial || ''}
+📄 Documentación: ${data.documentacion || ''}
+
+¿Todo está correcto?
+
+✅ Sí, continuar
+✏️ Corregir información`;
+}
+
+function buildExistingProfileMenu(data) {
+  return `Hola ${firstName(data.nombre_completo)} 👋
+
+Ya tengo tu perfil registrado:
+
+👤 Nombre: ${data.nombre_completo || ''}
+📍 Zona: ${data.ubicacion || ''}
+💼 Último empleo: ${data.ultimo_empleo || ''}
+🎯 Puesto buscado: ${data.puesto_buscado || ''}
+📈 Experiencia: ${data.experiencia || ''}
+⏰ Disponibilidad: ${data.disponibilidad || ''}
+🌐 Turno preferido: ${data.turno_preferido || ''}
+💰 Expectativa salarial: ${data.expectativa_salarial || ''}
+📄 Documentación: ${data.documentacion || ''}
+
+¿Qué quieres hacer?
+
+1️⃣ Ver vacantes compatibles
+2️⃣ Actualizar mis datos
+3️⃣ Hablar con un reclutador`;
+}
+
+function buildPuestoPrompt() {
+  return `¿Qué puesto estás buscando?
+
+Responde con el número o escribe el puesto:
+
+` + formatJobTitlesList() + `
+
+Si no está en la lista, escríbelo con tus palabras.`;
+}
+
+const MEXICO_STATES = [
+  { name: 'Aguascalientes', abbr: ['ags'], places: ['aguascalientes'] },
+  { name: 

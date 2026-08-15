@@ -1,109 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, Pencil, Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import type { VacancyRecord } from "@/lib/vacancies/domain/vacancy";
 import { formatSalaryRange } from "@/lib/vacancies/domain/vacancy";
-import {
-  JOB_TITLE_OTHER,
-  JOB_TITLES,
-  resolveJobTitle,
-  splitJobTitleForForm,
-} from "@/lib/vacancies/domain/job-titles";
-import {
-  VACANCY_EXPERIENCE_LEVELS,
-  VACANCY_FIELD_OTHER,
-  VACANCY_SCHEDULES,
-  VACANCY_SHIFTS,
-  resolveCatalogOrCustom,
-  splitCatalogOrCustom,
-} from "@/lib/vacancies/domain/vacancy-form-options";
-import {
-  CITY_OTHER,
-  MEXICO_STATE_NAMES,
-  REMOTE_LOCATION,
-  composeVacancyLocation,
-  getCitiesForState,
-  parseVacancyLocation,
-} from "@/lib/vacancies/domain/mexico-locations";
-import {
-  createCompanyVacancy,
-  toggleCompanyVacancy,
-  updateCompanyVacancy,
-} from "@/lib/vacancies/actions";
-
-type VacancyFormState = {
-  id?: string;
-  titleSelected: string;
-  titleCustom: string;
-  description: string;
-  locationState: string;
-  locationCity: string;
-  locationCityCustom: string;
-  scheduleSelected: string;
-  scheduleCustom: string;
-  salaryMin: string;
-  salaryMax: string;
-  preferredShift: string;
-  experienceSelected: string;
-  experienceCustom: string;
-  benefits: string;
-  requirements: string;
-  active: boolean;
-};
-
-const emptyForm = (): VacancyFormState => ({
-  titleSelected: "",
-  titleCustom: "",
-  description: "",
-  locationState: "",
-  locationCity: "",
-  locationCityCustom: "",
-  scheduleSelected: "",
-  scheduleCustom: "",
-  salaryMin: "",
-  salaryMax: "",
-  preferredShift: "",
-  experienceSelected: "",
-  experienceCustom: "",
-  benefits: "",
-  requirements: "",
-  active: true,
-});
-
-const fromRecord = (vacancy: VacancyRecord): VacancyFormState => {
-  const titleParts = splitJobTitleForForm(vacancy.title);
-  const scheduleParts = splitCatalogOrCustom(vacancy.schedule, VACANCY_SCHEDULES);
-  const experienceParts = splitCatalogOrCustom(
-    vacancy.experienceRequired,
-    VACANCY_EXPERIENCE_LEVELS,
-  );
-  const shiftValue = (vacancy.preferredShift ?? "").trim();
-  const preferredShift = (VACANCY_SHIFTS as readonly string[]).includes(shiftValue)
-    ? shiftValue
-    : "";
-  const locationParts = parseVacancyLocation(vacancy.location);
-
-  return {
-    id: vacancy.id,
-    titleSelected: titleParts.selected,
-    titleCustom: titleParts.custom,
-    description: vacancy.description ?? "",
-    locationState: locationParts.state,
-    locationCity: locationParts.city,
-    locationCityCustom: locationParts.cityCustom,
-    scheduleSelected: scheduleParts.selected,
-    scheduleCustom: scheduleParts.custom,
-    salaryMin: vacancy.salaryMin?.toString() ?? "",
-    salaryMax: vacancy.salaryMax?.toString() ?? "",
-    preferredShift,
-    experienceSelected: experienceParts.selected,
-    experienceCustom: experienceParts.custom,
-    benefits: vacancy.benefits ?? "",
-    requirements: vacancy.requirements ?? "",
-    active: vacancy.active,
-  };
-};
+import { toggleCompanyVacancy } from "@/lib/vacancies/actions";
+import { VacancyForm } from "@/components/cliente/vacancy-form";
 
 export const VacanciesModule = ({
   canManage,
@@ -114,97 +16,24 @@ export const VacanciesModule = ({
 }) => {
   const [pending, startTransition] = useTransition();
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState<VacancyFormState>(emptyForm);
+  const [editing, setEditing] = useState<VacancyRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const openCreate = () => {
-    setForm(emptyForm());
+    setEditing(null);
     setFormOpen(true);
     setError(null);
-    setFieldErrors({});
   };
 
   const openEdit = (vacancy: VacancyRecord) => {
-    setForm(fromRecord(vacancy));
+    setEditing(vacancy);
     setFormOpen(true);
     setError(null);
-    setFieldErrors({});
   };
 
-  const submit = (formData: FormData) => {
-    setError(null);
-    setFieldErrors({});
-
-    const resolvedTitle = resolveJobTitle(form.titleSelected, form.titleCustom);
-    if (!resolvedTitle || resolvedTitle.length < 2) {
-      setFieldErrors({
-        title:
-          form.titleSelected === JOB_TITLE_OTHER
-            ? "Escribe el nombre del puesto"
-            : "Selecciona un puesto",
-      });
-      return;
-    }
-
-    if (form.scheduleSelected === VACANCY_FIELD_OTHER && !form.scheduleCustom.trim()) {
-      setFieldErrors({ schedule: "Escribe el horario o elige una opción" });
-      return;
-    }
-
-    if (
-      form.experienceSelected === VACANCY_FIELD_OTHER &&
-      !form.experienceCustom.trim()
-    ) {
-      setFieldErrors({
-        experienceRequired: "Escribe la experiencia o elige una opción",
-      });
-      return;
-    }
-
-    if (form.locationState && form.locationState !== REMOTE_LOCATION) {
-      if (!form.locationCity) {
-        setFieldErrors({ location: "Selecciona una ciudad o municipio" });
-        return;
-      }
-      if (form.locationCity === CITY_OTHER && !form.locationCityCustom.trim()) {
-        setFieldErrors({ location: "Escribe la ciudad o municipio" });
-        return;
-      }
-    }
-
-    const resolvedSchedule = resolveCatalogOrCustom(
-      form.scheduleSelected,
-      form.scheduleCustom,
-    );
-    const resolvedExperience = resolveCatalogOrCustom(
-      form.experienceSelected,
-      form.experienceCustom,
-    );
-    const resolvedLocation = composeVacancyLocation({
-      state: form.locationState,
-      city: form.locationCity,
-      cityCustom: form.locationCityCustom,
-    });
-
-    formData.set("title", resolvedTitle);
-    formData.set("location", resolvedLocation ?? "");
-    formData.set("schedule", resolvedSchedule ?? "");
-    formData.set("preferredShift", form.preferredShift.trim());
-    formData.set("experienceRequired", resolvedExperience ?? "");
-
-    startTransition(async () => {
-      const result = form.id
-        ? await updateCompanyVacancy(formData)
-        : await createCompanyVacancy(formData);
-      if (!result.ok) {
-        if (result.fieldErrors) setFieldErrors(result.fieldErrors);
-        setError(result.error ?? "No pudimos guardar la vacante.");
-        return;
-      }
-      setFormOpen(false);
-      setForm(emptyForm());
-    });
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditing(null);
   };
 
   const toggleActive = (vacancy: VacancyRecord) => {
@@ -216,11 +45,6 @@ export const VacanciesModule = ({
     });
   };
 
-  const isRemoteLocation = form.locationState === REMOTE_LOCATION;
-  const cityOptions = form.locationState && !isRemoteLocation
-    ? getCitiesForState(form.locationState)
-    : [];
-
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -228,13 +52,15 @@ export const VacanciesModule = ({
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--brand-green)]">
             Vacantes
           </p>
-          <h2 className="mt-1 font-display text-2xl font-bold">Publicaciones de tu empresa</h2>
+          <h2 className="mt-1 font-display text-2xl font-bold">
+            Publicaciones de tu empresa
+          </h2>
           <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
-            Usa las opciones del catálogo para que WhatsApp ofrezca esta vacante sin errores
-            de acentos u ortografía. Solo el administrador puede crear o editar.
+            Usa las opciones del catálogo para que WhatsApp ofrezca esta vacante sin
+            errores de acentos u ortografía. Solo el administrador puede crear o editar.
           </p>
         </div>
-        {canManage ? (
+        {canManage && !formOpen ? (
           <button
             className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--brand-navy)] px-4 text-sm font-semibold text-[var(--background)]"
             onClick={openCreate}
@@ -247,400 +73,14 @@ export const VacanciesModule = ({
       </div>
 
       {formOpen && canManage ? (
-        <form
-          action={submit}
-          className="executive-card space-y-6 rounded-[22px] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]"
-        >
-          {form.id ? <input name="id" type="hidden" value={form.id} /> : null}
-
-          <section className="space-y-4">
-            <div>
-              <h3 className="font-display text-lg font-bold">Puesto</h3>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Usa el catálogo para que coincida con WhatsApp. Solo elige Otro si el puesto no
-                aparece en la lista.
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="auth-label sm:col-span-2">
-                Puesto
-                <select
-                  className="auth-input"
-                  disabled={pending}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      titleSelected: event.target.value,
-                      titleCustom:
-                        event.target.value === JOB_TITLE_OTHER ? prev.titleCustom : "",
-                    }))
-                  }
-                  required
-                  value={form.titleSelected}
-                >
-                  <option disabled value="">
-                    Selecciona un puesto
-                  </option>
-                  {JOB_TITLES.map((title) => (
-                    <option key={title} value={title}>
-                      {title}
-                    </option>
-                  ))}
-                  <option value={JOB_TITLE_OTHER}>{JOB_TITLE_OTHER}</option>
-                </select>
-                {fieldErrors.title ? (
-                  <span className="auth-field-error">{fieldErrors.title}</span>
-                ) : null}
-              </label>
-              {form.titleSelected === JOB_TITLE_OTHER ? (
-                <label className="auth-label sm:col-span-2">
-                  Nombre del puesto
-                  <input
-                    className="auth-input"
-                    disabled={pending}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, titleCustom: event.target.value }))
-                    }
-                    placeholder="Ej. Ayudante de piso"
-                    required
-                    value={form.titleCustom}
-                  />
-                </label>
-              ) : null}
-              <label className="auth-label sm:col-span-2">
-                Descripción breve
-                <textarea
-                  className="auth-input min-h-24"
-                  disabled={pending}
-                  name="description"
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, description: event.target.value }))
-                  }
-                  placeholder="Qué hará la persona en el día a día"
-                  value={form.description}
-                />
-              </label>
-            </div>
-          </section>
-
-          <section className="space-y-4 border-t border-[var(--line)] pt-5">
-            <div>
-              <h3 className="font-display text-lg font-bold">Ubicación</h3>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Se guarda como Ciudad, Estado para que el chatbot filtre bien por zona.
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="auth-label">
-                Entidad federativa
-                <select
-                  className="auth-input"
-                  disabled={pending}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      locationState: event.target.value,
-                      locationCity: "",
-                      locationCityCustom: "",
-                    }))
-                  }
-                  value={form.locationState}
-                >
-                  <option value="">Selecciona una entidad</option>
-                  <option value={REMOTE_LOCATION}>{REMOTE_LOCATION}</option>
-                  {MEXICO_STATE_NAMES.map((stateName) => (
-                    <option key={stateName} value={stateName}>
-                      {stateName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="auth-label">
-                Ciudad / municipio
-                <select
-                  className="auth-input"
-                  disabled={pending || !form.locationState || isRemoteLocation}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      locationCity: event.target.value,
-                      locationCityCustom:
-                        event.target.value === CITY_OTHER ? prev.locationCityCustom : "",
-                    }))
-                  }
-                  value={form.locationCity}
-                >
-                  <option value="">
-                    {isRemoteLocation
-                      ? "No aplica para Remoto"
-                      : "Selecciona una ciudad"}
-                  </option>
-                  {cityOptions.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                  {form.locationState && !isRemoteLocation ? (
-                    <option value={CITY_OTHER}>{CITY_OTHER}</option>
-                  ) : null}
-                </select>
-              </label>
-              {form.locationCity === CITY_OTHER ? (
-                <label className="auth-label sm:col-span-2">
-                  Nombre de la ciudad o municipio
-                  <input
-                    className="auth-input"
-                    disabled={pending}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        locationCityCustom: event.target.value,
-                      }))
-                    }
-                    placeholder="Ej. San Pedro Garza García"
-                    required
-                    value={form.locationCityCustom}
-                  />
-                </label>
-              ) : null}
-              {fieldErrors.location ? (
-                <span className="auth-field-error sm:col-span-2">{fieldErrors.location}</span>
-              ) : null}
-            </div>
-          </section>
-
-          <section className="space-y-4 border-t border-[var(--line)] pt-5">
-            <div>
-              <h3 className="font-display text-lg font-bold">Condiciones</h3>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Turno y experiencia deben coincidir con las opciones del chat.
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="auth-label">
-                Turno preferido
-                <select
-                  className="auth-input"
-                  disabled={pending}
-                  name="preferredShift"
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, preferredShift: event.target.value }))
-                  }
-                  value={form.preferredShift}
-                >
-                  <option value="">Sin preferencia</option>
-                  {VACANCY_SHIFTS.map((shift) => (
-                    <option key={shift} value={shift}>
-                      {shift}
-                    </option>
-                  ))}
-                </select>
-                <span className="mt-1 block text-xs text-[var(--muted)]">
-                  Cualquiera = sin filtro de turno en WhatsApp
-                </span>
-              </label>
-              <label className="auth-label">
-                Horario
-                <select
-                  className="auth-input"
-                  disabled={pending}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      scheduleSelected: event.target.value,
-                      scheduleCustom:
-                        event.target.value === VACANCY_FIELD_OTHER
-                          ? prev.scheduleCustom
-                          : "",
-                    }))
-                  }
-                  value={form.scheduleSelected}
-                >
-                  <option value="">Selecciona un horario</option>
-                  {VACANCY_SCHEDULES.map((schedule) => (
-                    <option key={schedule} value={schedule}>
-                      {schedule}
-                    </option>
-                  ))}
-                  <option value={VACANCY_FIELD_OTHER}>{VACANCY_FIELD_OTHER}</option>
-                </select>
-                {fieldErrors.schedule ? (
-                  <span className="auth-field-error">{fieldErrors.schedule}</span>
-                ) : null}
-              </label>
-              {form.scheduleSelected === VACANCY_FIELD_OTHER ? (
-                <label className="auth-label">
-                  Horario personalizado
-                  <input
-                    className="auth-input"
-                    disabled={pending}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, scheduleCustom: event.target.value }))
-                    }
-                    placeholder="Ej. Lunes a viernes 8:00 a 16:00"
-                    required
-                    value={form.scheduleCustom}
-                  />
-                </label>
-              ) : (
-                <div className="hidden sm:block" />
-              )}
-              <label className="auth-label">
-                Experiencia requerida
-                <select
-                  className="auth-input"
-                  disabled={pending}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      experienceSelected: event.target.value,
-                      experienceCustom:
-                        event.target.value === VACANCY_FIELD_OTHER
-                          ? prev.experienceCustom
-                          : "",
-                    }))
-                  }
-                  value={form.experienceSelected}
-                >
-                  <option value="">Sin especificar</option>
-                  {VACANCY_EXPERIENCE_LEVELS.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                  <option value={VACANCY_FIELD_OTHER}>{VACANCY_FIELD_OTHER}</option>
-                </select>
-                <span className="mt-1 block text-xs text-[var(--muted)]">
-                  Usa las mismas opciones que responde el candidato en WhatsApp
-                </span>
-                {fieldErrors.experienceRequired ? (
-                  <span className="auth-field-error">{fieldErrors.experienceRequired}</span>
-                ) : null}
-              </label>
-              {form.experienceSelected === VACANCY_FIELD_OTHER ? (
-                <label className="auth-label">
-                  Experiencia personalizada
-                  <input
-                    className="auth-input"
-                    disabled={pending}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        experienceCustom: event.target.value,
-                      }))
-                    }
-                    placeholder="Ej. 2 años en retail"
-                    required
-                    value={form.experienceCustom}
-                  />
-                </label>
-              ) : (
-                <div className="hidden sm:block" />
-              )}
-              <label className="auth-label">
-                Salario mínimo (MXN)
-                <input
-                  className="auth-input"
-                  disabled={pending}
-                  inputMode="numeric"
-                  name="salaryMin"
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, salaryMin: event.target.value }))
-                  }
-                  placeholder="10000"
-                  value={form.salaryMin}
-                />
-              </label>
-              <label className="auth-label">
-                Salario máximo (MXN)
-                <input
-                  className="auth-input"
-                  disabled={pending}
-                  inputMode="numeric"
-                  name="salaryMax"
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, salaryMax: event.target.value }))
-                  }
-                  placeholder="15000"
-                  value={form.salaryMax}
-                />
-                {fieldErrors.salaryMax ? (
-                  <span className="auth-field-error">{fieldErrors.salaryMax}</span>
-                ) : null}
-              </label>
-            </div>
-          </section>
-
-          <section className="space-y-4 border-t border-[var(--line)] pt-5">
-            <div>
-              <h3 className="font-display text-lg font-bold">Detalle para el candidato</h3>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Texto claro y corto; el bot lo muestra en WhatsApp.
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="auth-label sm:col-span-2">
-                Beneficios
-                <textarea
-                  className="auth-input min-h-20"
-                  disabled={pending}
-                  name="benefits"
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, benefits: event.target.value }))
-                  }
-                  placeholder="Ej. Vales de despensa, transporte, comedor"
-                  value={form.benefits}
-                />
-              </label>
-              <label className="auth-label sm:col-span-2">
-                Requisitos
-                <textarea
-                  className="auth-input min-h-20"
-                  disabled={pending}
-                  name="requirements"
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, requirements: event.target.value }))
-                  }
-                  placeholder="Ej. Disponibilidad inmediata, INE vigente"
-                  value={form.requirements}
-                />
-              </label>
-            </div>
-          </section>
-
-          <div className="space-y-4 border-t border-[var(--line)] pt-5">
-            <input name="active" type="hidden" value={form.active ? "true" : "false"} />
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                checked={form.active}
-                disabled={pending}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, active: event.target.checked }))
-                }
-                type="checkbox"
-              />
-              Vacante activa (visible para el chatbot)
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button className="auth-primary-button" disabled={pending} type="submit">
-                {pending ? <Loader2 className="auth-spinner" size={16} /> : null}
-                {form.id ? "Guardar cambios" : "Publicar vacante"}
-              </button>
-              <button
-                className="inline-flex min-h-11 items-center rounded-full border border-[var(--line)] px-4 text-sm font-semibold"
-                disabled={pending}
-                onClick={() => setFormOpen(false)}
-                type="button"
-              >
-                Cancelar
-              </button>
-            </div>
-            {error ? <p className="auth-error">{error}</p> : null}
-          </div>
-        </form>
+        <VacancyForm
+          initial={editing}
+          onCancel={closeForm}
+          onSaved={closeForm}
+        />
       ) : null}
 
-      {vacancies.length === 0 ? (
+      {vacancies.length === 0 && !formOpen ? (
         <div className="executive-card rounded-[22px] border border-dashed border-[var(--line)] bg-[var(--surface-soft)] p-8 text-center">
           <p className="font-semibold">Aún no hay vacantes</p>
           <p className="mt-2 text-sm text-[var(--muted)]">
@@ -648,8 +88,18 @@ export const VacanciesModule = ({
               ? "Crea la primera vacante para empezar a recibir candidatos."
               : "Cuando el administrador publique vacantes aparecerán aquí."}
           </p>
+          {canManage ? (
+            <button
+              className="auth-primary-button mx-auto mt-5 !w-auto min-h-11 px-5"
+              onClick={openCreate}
+              type="button"
+            >
+              <Plus size={16} />
+              Crear primera vacante
+            </button>
+          ) : null}
         </div>
-      ) : (
+      ) : vacancies.length > 0 ? (
         <div className="grid gap-3 lg:grid-cols-2">
           {vacancies.map((vacancy) => (
             <article
@@ -688,7 +138,7 @@ export const VacanciesModule = ({
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[var(--line)] px-3 text-xs font-semibold"
-                    disabled={pending}
+                    disabled={pending || formOpen}
                     onClick={() => openEdit(vacancy)}
                     type="button"
                   >
@@ -697,7 +147,7 @@ export const VacanciesModule = ({
                   </button>
                   <button
                     className="inline-flex min-h-10 items-center rounded-full border border-[var(--line)] px-3 text-xs font-semibold"
-                    disabled={pending}
+                    disabled={pending || formOpen}
                     onClick={() => toggleActive(vacancy)}
                     type="button"
                   >
@@ -708,7 +158,7 @@ export const VacanciesModule = ({
             </article>
           ))}
         </div>
-      )}
+      ) : null}
       {error && !formOpen ? <p className="auth-error">{error}</p> : null}
     </div>
   );

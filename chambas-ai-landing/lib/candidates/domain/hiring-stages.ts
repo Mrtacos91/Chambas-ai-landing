@@ -30,12 +30,12 @@ export const HIRING_PIPELINE_ORDER: HiringStage[] = [
   "descartado",
 ];
 
-export const QUICK_STAGE_ACTIONS: { stage: HiringStage; label: string }[] = [
+export const QUICK_STAGE_ACTIONS = [
   { stage: "contactado", label: "Contactar" },
   { stage: "entrevista", label: "Entrevista" },
   { stage: "contratado", label: "Contratar" },
   { stage: "descartado", label: "Descartar" },
-];
+] as const satisfies readonly { stage: HiringStage; label: string }[];
 
 export const isHiringStage = (value: string): value is HiringStage =>
   (HIRING_STAGES as readonly string[]).includes(value);

@@ -15,6 +15,7 @@ import { CandidatesModule } from "@/components/cliente/candidates-module";
 import { TeamModule, type TeamInvitationView, type TeamMemberView } from "@/components/cliente/team-module";
 import { VacanciesModule } from "@/components/cliente/vacancies-module";
 import type { CompanyHiringPipelineRow } from "@/lib/candidates/application/list-company-hiring-pipeline";
+import type { HiringMessageTemplateMap } from "@/lib/candidates/domain/hiring-message-templates";
 import type { VacancyRecord } from "@/lib/vacancies/domain/vacancy";
 
 export type ClientModule = "inicio" | "vacantes" | "candidatos" | "equipo";
@@ -33,6 +34,7 @@ type ClientDashboardProps = {
   initialModule?: ClientModule;
   invitations: TeamInvitationView[];
   members: TeamMemberView[];
+  messageTemplates: HiringMessageTemplateMap;
   stats: ClientDashboardStats;
   user: {
     fullName: string | null;
@@ -56,6 +58,7 @@ export const ClientDashboard = ({
   initialModule = "inicio",
   invitations,
   members,
+  messageTemplates,
   stats,
   user,
   vacancies,
@@ -229,7 +232,13 @@ export const ClientDashboard = ({
       ) : null}
 
       {activeModule === "candidatos" ? (
-        <CandidatesModule candidates={candidates} vacancies={vacancies} />
+        <CandidatesModule
+          canManageTemplates={canManageVacancies}
+          candidates={candidates}
+          companyName={companyName}
+          messageTemplates={messageTemplates}
+          vacancies={vacancies}
+        />
       ) : null}
 
       {activeModule === "equipo" ? (
