@@ -40,6 +40,7 @@ import {
 import {
   formatInterviewAt,
   hasInterviewInviteReady,
+  type VacancyRecord,
 } from "@/lib/vacancies/domain/vacancy";
 
 const dateFormatter = new Intl.DateTimeFormat("es-MX", {

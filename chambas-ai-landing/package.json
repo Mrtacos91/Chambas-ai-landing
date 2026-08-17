@@ -1,6 +1,6 @@
 {
   "name": "chambas-ai-landing",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -14,6 +14,7 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
     "animejs": "^4.4.1",
+    "geist": "^1.7.2",
     "lucide-react": "^0.577.0",
     "motion": "^13.1.0",
     "next": "16.1.6",

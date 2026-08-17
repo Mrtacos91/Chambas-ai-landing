@@ -1,14 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Inter_Tight } from "next/font/google";
+import { Inter_Tight } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { OG_LOCALE, SITE_LOCALE, SITE_NAME, SITE_URL } from "@/lib/seo/config";
-
-const geist = Geist({
-  subsets: ["latin"],
-  variable: "--font-geist",
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-});
 
 const interTight = Inter_Tight({
   subsets: ["latin"],
@@ -295,7 +289,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className={`${geist.variable} ${interTight.variable} antialiased`}>
+      <body className={`${GeistSans.variable} ${interTight.variable} antialiased`}>
         {children}
       </body>
     </html>
