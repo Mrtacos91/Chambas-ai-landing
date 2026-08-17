@@ -5,6 +5,9 @@ import type { VacancyRecord } from "@/lib/vacancies/domain/vacancy";
 
 type AdminOrUserClient = SupabaseClient<Database>;
 
+const VACANCY_COLUMNS =
+  "id, company_id, title, description, location, schedule, salary_min, salary_max, preferred_shift, experience_required, benefits, requirements, interview_at, interview_address, interview_details, work_start_on, active, created_at, updated_at";
+
 const mapVacancy = (row: Database["public"]["Tables"]["vacancies"]["Row"]): VacancyRecord => ({
   id: row.id,
   companyId: row.company_id ?? "",
@@ -18,6 +21,10 @@ const mapVacancy = (row: Database["public"]["Tables"]["vacancies"]["Row"]): Vaca
   experienceRequired: row.experience_required,
   benefits: row.benefits,
   requirements: row.requirements,
+  interviewAt: row.interview_at,
+  interviewAddress: row.interview_address,
+  interviewDetails: row.interview_details,
+  workStartOn: row.work_start_on,
   active: row.active ?? false,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -29,9 +36,7 @@ export const listCompanyVacancies = async (
 ): Promise<VacancyRecord[]> => {
   const { data, error } = await client
     .from("vacancies")
-    .select(
-      "id, company_id, title, description, location, schedule, salary_min, salary_max, preferred_shift, experience_required, benefits, requirements, active, created_at, updated_at",
-    )
+    .select(VACANCY_COLUMNS)
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
 
@@ -61,11 +66,13 @@ export const createVacancy = async (
       experience_required: input.experienceRequired,
       benefits: input.benefits,
       requirements: input.requirements,
+      interview_at: input.interviewAt,
+      interview_address: input.interviewAddress,
+      interview_details: input.interviewDetails,
+      work_start_on: input.workStartOn,
       active: input.active,
     })
-    .select(
-      "id, company_id, title, description, location, schedule, salary_min, salary_max, preferred_shift, experience_required, benefits, requirements, active, created_at, updated_at",
-    )
+    .select(VACANCY_COLUMNS)
     .single();
 
   if (error || !data) {
@@ -94,14 +101,16 @@ export const updateVacancy = async (
       experience_required: input.experienceRequired,
       benefits: input.benefits,
       requirements: input.requirements,
+      interview_at: input.interviewAt,
+      interview_address: input.interviewAddress,
+      interview_details: input.interviewDetails,
+      work_start_on: input.workStartOn,
       active: input.active,
       updated_at: new Date().toISOString(),
     })
     .eq("id", vacancyId)
     .eq("company_id", companyId)
-    .select(
-      "id, company_id, title, description, location, schedule, salary_min, salary_max, preferred_shift, experience_required, benefits, requirements, active, created_at, updated_at",
-    )
+    .select(VACANCY_COLUMNS)
     .single();
 
   if (error || !data) {
@@ -125,9 +134,7 @@ export const setVacancyActive = async (
     })
     .eq("id", vacancyId)
     .eq("company_id", companyId)
-    .select(
-      "id, company_id, title, description, location, schedule, salary_min, salary_max, preferred_shift, experience_required, benefits, requirements, active, created_at, updated_at",
-    )
+    .select(VACANCY_COLUMNS)
     .single();
 
   if (error || !data) {

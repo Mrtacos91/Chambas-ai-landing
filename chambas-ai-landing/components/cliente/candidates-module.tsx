@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarClock,
   ChevronDown,
   Loader2,
   MessageCircle,
@@ -11,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { createPortal } from "react-dom";
 import {
   saveCompanyHiringMessageTemplates,
+  sendInterviewInvite,
   updateCandidateNotes,
   updateCandidateStage,
 } from "@/lib/candidates/actions";
@@ -31,7 +33,14 @@ import {
   type HiringMessageTemplateMap,
   type TemplateStage,
 } from "@/lib/candidates/domain/hiring-message-templates";
-import type { VacancyRecord } from "@/lib/vacancies/domain/vacancy";
+import {
+  CONFIRMATION_STATUS_LABELS,
+  canSendInterviewInvite,
+} from "@/lib/candidates/domain/confirmation-status";
+import {
+  formatInterviewAt,
+  hasInterviewInviteReady,
+} from "@/lib/vacancies/domain/vacancy";
 
 const dateFormatter = new Intl.DateTimeFormat("es-MX", {
   dateStyle: "medium",
@@ -64,6 +73,19 @@ const isStaleActivity = (iso: string | null, hours: number): boolean => {
   const ts = new Date(iso).getTime();
   if (Number.isNaN(ts)) return true;
   return Date.now() - ts > hours * 60 * 60 * 1000;
+};
+
+const confirmationBadgeClass = (status: CompanyHiringPipelineRow["confirmationStatus"]): string => {
+  switch (status) {
+    case "sent":
+      return "bg-indigo-50 text-indigo-800";
+    case "confirmed":
+      return "bg-emerald-50 text-emerald-800";
+    case "declined":
+      return "bg-rose-50 text-rose-800";
+    default:
+      return "bg-[var(--surface-soft)] text-[var(--muted)]";
+  }
 };
 
 const staleLabel = (iso: string | null): string | null => {
@@ -228,6 +250,32 @@ export const CandidatesModule = ({
       if (!result.ok) {
         setRows(previous);
         setError(result.error ?? "No se pudo guardar la nota.");
+      }
+    });
+  };
+
+  const sendInvite = (pipelineId: string) => {
+    setError(null);
+    const previous = rows;
+    const now = new Date().toISOString();
+    setRows((current) =>
+      current.map((row) =>
+        row.id === pipelineId
+          ? {
+              ...row,
+              stage: "entrevista",
+              confirmationStatus: "sent",
+              confirmationSentAt: now,
+              lastActivity: now,
+            }
+          : row,
+      ),
+    );
+    startTransition(async () => {
+      const result = await sendInterviewInvite({ pipelineId });
+      if (!result.ok) {
+        setRows(previous);
+        setError(result.error ?? "No se pudo enviar la cita.");
       }
     });
   };
@@ -416,6 +464,15 @@ export const CandidatesModule = ({
                             {staleLabel(row.lastActivity)}
                           </span>
                         ) : null}
+                        {row.confirmationStatus !== "none" ? (
+                          <span
+                            className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${confirmationBadgeClass(row.confirmationStatus)}`}
+                          >
+                            {row.reminderSentAt
+                              ? "Recordatorio enviado"
+                              : CONFIRMATION_STATUS_LABELS[row.confirmationStatus]}
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td className="px-4 py-4 align-top">
@@ -441,6 +498,7 @@ export const CandidatesModule = ({
         <CandidateDrawer
           companyName={companyName}
           onClose={closeDrawer}
+          onInvite={sendInvite}
           onSaveNotes={saveNotes}
           onStageChange={changeStage}
           pending={pending}
@@ -593,6 +651,7 @@ const CandidateDrawer = ({
   companyName,
   templates,
   onClose,
+  onInvite,
   onStageChange,
   onSaveNotes,
 }: {
@@ -601,6 +660,7 @@ const CandidateDrawer = ({
   companyName: string;
   templates: HiringMessageTemplateMap;
   onClose: () => void;
+  onInvite: (pipelineId: string) => void;
   onStageChange: (
     pipelineId: string,
     stage: HiringStage,
@@ -685,6 +745,19 @@ const CandidateDrawer = ({
                 <MessageCircle size={16} />
                 WhatsApp
               </a>
+              <button
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[var(--brand-green)] bg-[var(--surface)] px-4 text-sm font-semibold disabled:opacity-60"
+                disabled={
+                  pending ||
+                  !hasInterviewInviteReady(row) ||
+                  !canSendInterviewInvite(row.confirmationStatus)
+                }
+                onClick={() => onInvite(row.id)}
+                type="button"
+              >
+                <CalendarClock size={14} />
+                Confirmar cita
+              </button>
               {QUICK_STAGE_ACTIONS.map((action) => (
                 <button
                   className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--surface-soft)] px-4 text-sm font-semibold disabled:opacity-60"
@@ -702,9 +775,14 @@ const CandidateDrawer = ({
               ))}
             </div>
             <p className="text-xs text-[var(--muted)]">
-              Contactar, Entrevista, Contratar y Descartar actualizan la etapa y abren
-              WhatsApp con la plantilla lista para enviar.
+              Confirmar cita envía WhatsApp por Jalector con fecha, sede y pruebas.
+              Contactar, Entrevista, Contratar y Descartar siguen abriendo WhatsApp Web.
             </p>
+            {!hasInterviewInviteReady(row) ? (
+              <p className="text-xs text-amber-800">
+                Completa fecha y sede de reclutamiento en la vacante para poder invitar.
+              </p>
+            ) : null}
           </div>
 
           <label className="block space-y-2">
@@ -752,6 +830,21 @@ const CandidateDrawer = ({
               }
             />
             <InfoItem label="Perfil" value={`${row.completeness}% completo`} />
+            <InfoItem
+              label="Cita"
+              value={
+                row.reminderSentAt
+                  ? "Recordatorio enviado"
+                  : CONFIRMATION_STATUS_LABELS[row.confirmationStatus]
+              }
+            />
+            <InfoItem
+              label="Fecha de cita"
+              value={formatInterviewAt(row.interviewAt) || null}
+            />
+            <InfoItem label="Sede" value={row.interviewAddress} />
+            <InfoItem label="Pruebas" value={row.interviewDetails} />
+            <InfoItem label="Inicio" value={row.workStartOn} />
           </dl>
 
           <label className="block space-y-2">

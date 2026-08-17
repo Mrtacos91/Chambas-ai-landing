@@ -33,7 +33,7 @@ import {
   getCitiesForState,
   parseVacancyLocation,
 } from "@/lib/vacancies/domain/mexico-locations";
-import { formatSalaryRange, type VacancyRecord } from "@/lib/vacancies/domain/vacancy";
+import { formatSalaryRange, toMexicoDatetimeLocal, type VacancyRecord } from "@/lib/vacancies/domain/vacancy";
 import {
   createCompanyVacancy,
   updateCompanyVacancy,
@@ -56,6 +56,10 @@ type VacancyFormState = {
   experienceCustom: string;
   benefits: string;
   requirements: string;
+  interviewAt: string;
+  interviewAddress: string;
+  interviewDetails: string;
+  workStartOn: string;
   active: boolean;
 };
 
@@ -84,6 +88,10 @@ const emptyForm = (): VacancyFormState => ({
   experienceCustom: "",
   benefits: "",
   requirements: "",
+  interviewAt: "",
+  interviewAddress: "",
+  interviewDetails: "",
+  workStartOn: "",
   active: true,
 });
 
@@ -117,6 +125,10 @@ const fromRecord = (vacancy: VacancyRecord): VacancyFormState => {
     experienceCustom: experienceParts.custom,
     benefits: vacancy.benefits ?? "",
     requirements: vacancy.requirements ?? "",
+    interviewAt: toMexicoDatetimeLocal(vacancy.interviewAt),
+    interviewAddress: vacancy.interviewAddress ?? "",
+    interviewDetails: vacancy.interviewDetails ?? "",
+    workStartOn: vacancy.workStartOn ?? "",
     active: vacancy.active,
   };
 };
@@ -333,6 +345,10 @@ export const VacancyForm = ({
     formData.set("salaryMax", form.salaryMax);
     formData.set("benefits", form.benefits);
     formData.set("requirements", form.requirements);
+    formData.set("interviewAt", form.interviewAt);
+    formData.set("interviewAddress", form.interviewAddress);
+    formData.set("interviewDetails", form.interviewDetails);
+    formData.set("workStartOn", form.workStartOn);
     formData.set("active", form.active ? "true" : "false");
 
     startTransition(async () => {
@@ -849,6 +865,71 @@ export const VacancyForm = ({
                   value={form.requirements}
                 />
               </label>
+
+              <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-soft)] p-4">
+                <div>
+                  <p className="text-sm font-semibold">Reclutamiento</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Estos datos se envían por WhatsApp al confirmar la cita desde el CRM.
+                    Fecha y sede son obligatorios para poder invitar.
+                  </p>
+                </div>
+                <label className="auth-label">
+                  Fecha y hora de la cita
+                  <input
+                    className="auth-input"
+                    disabled={pending}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, interviewAt: event.target.value }))
+                    }
+                    type="datetime-local"
+                    value={form.interviewAt}
+                  />
+                </label>
+                <label className="auth-label">
+                  Dirección / sede
+                  <input
+                    className="auth-input"
+                    disabled={pending}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        interviewAddress: event.target.value,
+                      }))
+                    }
+                    placeholder="Ej. Av. Industrial 120, Huehuetoca, Edo. Mex."
+                    value={form.interviewAddress}
+                  />
+                </label>
+                <label className="auth-label">
+                  Pruebas e indicaciones
+                  <textarea
+                    className="auth-input min-h-20"
+                    disabled={pending}
+                    maxLength={2000}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        interviewDetails: event.target.value,
+                      }))
+                    }
+                    placeholder="Ej. Llevar INE, prueba de aptitud a las 8:00, vestimenta de seguridad"
+                    value={form.interviewDetails}
+                  />
+                </label>
+                <label className="auth-label">
+                  Día de inicio (opcional)
+                  <input
+                    className="auth-input"
+                    disabled={pending}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, workStartOn: event.target.value }))
+                    }
+                    type="date"
+                    value={form.workStartOn}
+                  />
+                </label>
+              </div>
 
               <button
                 className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${

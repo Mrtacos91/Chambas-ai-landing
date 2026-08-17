@@ -48,6 +48,10 @@ export const createCompanyVacancy = async (
     experienceRequired: formData.get("experienceRequired") || undefined,
     benefits: formData.get("benefits") || undefined,
     requirements: formData.get("requirements") || undefined,
+    interviewAt: formData.get("interviewAt") || undefined,
+    interviewAddress: formData.get("interviewAddress") || undefined,
+    interviewDetails: formData.get("interviewDetails") || undefined,
+    workStartOn: formData.get("workStartOn") || undefined,
     active: formData.get("active"),
   });
 
@@ -88,6 +92,10 @@ export const updateCompanyVacancy = async (
     experienceRequired: formData.get("experienceRequired") || undefined,
     benefits: formData.get("benefits") || undefined,
     requirements: formData.get("requirements") || undefined,
+    interviewAt: formData.get("interviewAt") || undefined,
+    interviewAddress: formData.get("interviewAddress") || undefined,
+    interviewDetails: formData.get("interviewDetails") || undefined,
+    workStartOn: formData.get("workStartOn") || undefined,
     active: formData.get("active"),
   });
 

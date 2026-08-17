@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isCanonicalVacancyLocation } from "@/lib/vacancies/domain/mexico-locations";
+import { parseMexicoDateTimeToIso } from "@/lib/vacancies/domain/vacancy";
 
 const optionalText = z
   .string()
@@ -54,6 +55,22 @@ export const vacancyFormSchema = z
     experienceRequired: optionalText,
     benefits: optionalText,
     requirements: optionalText,
+    interviewAt: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => parseMexicoDateTimeToIso(value ?? "")),
+    interviewAddress: optionalText,
+    interviewDetails: optionalText,
+    workStartOn: z
+      .string()
+      .trim()
+      .optional()
+      .refine(
+        (value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value),
+        { message: "Usa una fecha de inicio válida" },
+      )
+      .transform((value) => (value && value.length > 0 ? value : null)),
     active: z
       .union([z.boolean(), z.string(), z.null(), z.undefined()])
       .transform((value) => {

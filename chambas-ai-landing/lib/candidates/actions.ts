@@ -8,6 +8,7 @@ import { HIRING_STAGES } from "@/lib/candidates/domain/hiring-stages";
 import { TEMPLATE_STAGES } from "@/lib/candidates/domain/hiring-message-templates";
 import { updatePipelineNotes } from "@/lib/candidates/application/update-pipeline-notes";
 import { updatePipelineStage } from "@/lib/candidates/application/update-pipeline-stage";
+import { inviteCandidateToInterview } from "@/lib/candidates/application/invite-to-interview";
 import {
   listHiringMessageTemplates,
   upsertHiringMessageTemplates,
@@ -27,6 +28,10 @@ const stageSchema = z.object({
 const notesSchema = z.object({
   pipelineId: z.string().uuid(),
   notes: z.string().max(4000),
+});
+
+const inviteSchema = z.object({
+  pipelineId: z.string().uuid(),
 });
 
 const templatesSchema = z.object({
@@ -154,6 +159,36 @@ export const saveCompanyHiringMessageTemplates = async (input: {
         error instanceof Error
           ? error.message
           : "No pudimos guardar las plantillas.",
+    };
+  }
+};
+
+export const sendInterviewInvite = async (input: {
+  pipelineId: string;
+}): Promise<ActionResult> => {
+  const { user, membership } = await requireUsuario();
+  const parsed = inviteSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Candidato inválido." };
+  }
+
+  try {
+    const supabase = await createClient();
+    await inviteCandidateToInterview(supabase, {
+      pipelineId: parsed.data.pipelineId,
+      companyId: membership.companyId,
+      companyName: membership.companyName,
+      userId: user.id,
+    });
+    revalidatePath("/cliente");
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "No pudimos enviar la confirmación de cita.",
     };
   }
 };

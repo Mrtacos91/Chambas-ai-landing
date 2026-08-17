@@ -1,10 +1,17 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { FlowWaveBackground } from "@/components/landing/flow-wave-background";
+import { motion, useReducedMotion } from "motion/react";
+import { LandingBackdrop } from "@/components/landing/landing-backdrop";
+import {
+  Reveal,
+  RevealItem,
+  Stagger,
+  landingEase,
+} from "@/components/landing/landing-motion";
 import {
   ArrowRight,
   Bot,
@@ -27,13 +34,11 @@ import {
   Plus,
   QrCode,
   ShieldCheck,
-  Sparkles,
   Sun,
   TrendingUp,
   UtensilsCrossed,
   X,
 } from "lucide-react";
-import { animate, createTimeline, stagger } from "animejs";
 
 const WHATSAPP_URL = "https://wa.me/5215564329548";
 const EMAIL_URL = "mailto:monserrat.pineda@clarios.com.mx";
@@ -192,6 +197,27 @@ const useCases = [
   },
 ];
 
+const trustedEnterprises = [
+  {
+    name: "Tomocorp",
+    logo: "/enterprises/clean-v2/tomocorp.png",
+    darkLogo: "/enterprises/clean-v2/tomocorp-dark.png",
+  },
+  {
+    name: "Caly Mayor",
+    logo: "/enterprises/clean-v2/calymayor.png",
+    darkLogo: "/enterprises/clean-v2/calymayor-dark.png",
+  },
+  {
+    name: "Dipromedic",
+    logo: "/logo-dipromedic.svg",
+  },
+  {
+    name: "Chilaquil Flautín",
+    logo: "/chilaquil_flautin.png",
+  },
+];
+
 const faqs = [
   {
     question: "¿Es necesario que mis candidatos descarguen una aplicación?",
@@ -257,94 +283,7 @@ const footerColumns = [
 ];
 
 export default function JalectorLanding() {
-  useEffect(() => {
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (reducedMotion) {
-      return;
-    }
-
-    const intro = createTimeline({
-      defaults: { ease: "outExpo", duration: 900 },
-    });
-
-    intro
-      .add(".hero-kicker", { opacity: [0, 1], y: [12, 0], duration: 650 })
-      .add(".hero-word", { opacity: [0, 1], y: [24, 0], delay: stagger(55) }, "-=420")
-      .add(".hero-copy", { opacity: [0, 1], y: [20, 0] }, "-=520")
-      .add(".hero-action", { opacity: [0, 1], y: [16, 0], delay: stagger(70) }, "-=520")
-      .add(".hero-panel", { opacity: [0, 1], y: [28, 0], scale: [0.97, 1] }, "-=620");
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) {
-            return;
-          }
-
-          animate(entry.target, {
-            opacity: [0, 1],
-            y: [22, 0],
-            duration: 750,
-            ease: "outExpo",
-          });
-          observer.unobserve(entry.target);
-        });
-      },
-      { threshold: 0.14 },
-    );
-
-    document.querySelectorAll(".reveal").forEach((element) => {
-      observer.observe(element);
-    });
-
-    animate(".signal-line", {
-      strokeDashoffset: [1200, 0],
-      opacity: [0.08, 0.42, 0.08],
-      duration: stagger([4800, 7000]),
-      delay: stagger(220),
-      loop: true,
-      ease: "inOutSine",
-    });
-
-    animate(".signal-chip", {
-      x: stagger([-12, 12]),
-      y: stagger([8, -10]),
-      opacity: [0.35, 0.9, 0.35],
-      duration: stagger([2600, 4200]),
-      delay: stagger(140),
-      alternate: true,
-      loop: true,
-      ease: "inOutSine",
-    });
-
-    animate(".candidate-row", {
-      x: [16, 0],
-      opacity: [0, 1],
-      delay: stagger(160, { start: 900 }),
-      duration: 800,
-      ease: "outExpo",
-    });
-
-    animate(".scan-bar", {
-      translateX: ["-110%", "110%"],
-      duration: 2600,
-      loop: true,
-      ease: "inOutSine",
-    });
-
-    animate(".typing-dot", {
-      opacity: [0.25, 1, 0.25],
-      y: [0, -3, 0],
-      delay: stagger(140),
-      duration: 900,
-      loop: true,
-      ease: "inOutSine",
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
+  const reducedMotion = useReducedMotion();
   const headline = useMemo(
     () => ["Capta", "candidatos", "por", "WhatsApp.", "Decide", "desde", "tu", "panel."],
     [],
@@ -359,10 +298,15 @@ export default function JalectorLanding() {
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
-      <FlowWaveBackground />
+    <main className="relative min-h-screen overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
+      <LandingBackdrop />
 
-      <nav className="fixed inset-x-0 top-0 z-50 border-b border-[var(--nav-border)] bg-[var(--nav-bg)] backdrop-blur-xl">
+      <motion.nav
+        className="fixed inset-x-0 top-0 z-50 border-b border-[var(--nav-border)] bg-[var(--nav-bg)] backdrop-blur-xl"
+        initial={reducedMotion ? false : { opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: landingEase }}
+      >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
           <a href="#top" className="flex items-center gap-3" aria-label="Jalector">
             <BrandLogo size={42} priority />
@@ -377,6 +321,9 @@ export default function JalectorLanding() {
             </a>
             <a href="#producto" className="nav-link">
               Panel
+            </a>
+            <a href="#confianza" className="nav-link">
+              Empresas
             </a>
             <a href="#comparativa" className="nav-link">
               Comparativa
@@ -417,45 +364,77 @@ export default function JalectorLanding() {
             </Link>
           </div>
         </div>
-      </nav>
+      </motion.nav>
 
-      <section id="top" className="relative min-h-screen px-5 pt-28 md:px-8">
+      <section id="top" className="relative z-10 px-5 pt-28 md:px-8">
         <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 pb-16 pt-10 lg:grid-cols-[1.03fr_0.97fr] lg:pb-20 lg:pt-20">
           <div className="relative z-10 max-w-3xl">
-            
-
-            <h1 className="font-display text-5xl font-500 leading-[1.04] tracking-tight text-[var(--foreground)] md:text-7xl lg:text-[5.6rem]">
+            <h1 className="font-display text-4xl font-600 leading-[1.12] tracking-tight text-[var(--foreground)] md:text-6xl">
               {headline.map((word, index) => (
-                <span
+                <motion.span
                   key={`${word}-${index}`}
                   className={`hero-word mr-3 inline-block ${
                     word === "WhatsApp." || word === "panel." ? "text-gradient" : ""
                   }`}
+                  initial={reducedMotion ? false : { opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.7,
+                    delay: 0.08 + index * 0.055,
+                    ease: landingEase,
+                  }}
                 >
                   {word}
-                </span>
+                </motion.span>
               ))}
             </h1>
 
-            <p className="hero-copy mt-8 max-w-2xl text-lg leading-8 text-[var(--muted)] md:text-xl md:leading-9">
+            <motion.p
+              className="hero-copy mt-6 max-w-xl text-base leading-7 text-[var(--muted)] md:text-lg md:leading-8"
+              initial={reducedMotion ? false : { opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.48, ease: landingEase }}
+            >
               Jalector entrevista a tus aspirantes en una conversación de tres
               minutos por WhatsApp, valida la información que tu operación necesita
               y entrega cada perfil estructurado en un panel ejecutivo construido
               para tu equipo de talento.
-            </p>
+            </motion.p>
 
-            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-              <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="hero-action primary-button">
+            <motion.div
+              className="mt-10 flex flex-col gap-4 sm:flex-row"
+              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.65, delay: 0.58, ease: landingEase }}
+            >
+              <motion.a
+                href={WHATSAPP_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="hero-action primary-button"
+                whileHover={reducedMotion ? undefined : { y: -1 }}
+                whileTap={reducedMotion ? undefined : { scale: 0.98 }}
+              >
                 Probar el chatbot
                 <ArrowRight size={17} />
-              </a>
-              <a href={EMAIL_URL} className="hero-action secondary-button">
+              </motion.a>
+              <motion.a
+                href={EMAIL_URL}
+                className="hero-action secondary-button"
+                whileHover={reducedMotion ? undefined : { y: -1 }}
+                whileTap={reducedMotion ? undefined : { scale: 0.98 }}
+              >
                 Agendar demostración
                 <ChevronRight size={17} />
-              </a>
-            </div>
+              </motion.a>
+            </motion.div>
 
-            <div className="hero-action mt-10 flex flex-wrap items-center gap-x-7 gap-y-3 text-xs font-500 text-[var(--muted)]">
+            <motion.div
+              className="hero-action mt-10 flex flex-wrap items-center gap-x-7 gap-y-3 text-xs font-500 text-[var(--muted)]"
+              initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.7, ease: landingEase }}
+            >
               <span className="inline-flex items-center gap-2">
                 <Check size={14} className="text-[var(--brand-green)]" />
                 Sin instalación para el candidato
@@ -468,40 +447,91 @@ export default function JalectorLanding() {
                 <Check size={14} className="text-[var(--brand-green)]" />
                 Cumple con la LFPDPPP
               </span>
-            </div>
+            </motion.div>
           </div>
 
           <HeroConsole />
         </div>
       </section>
 
-      <section className="border-y border-[var(--line)] bg-[var(--surface)] px-5 py-14 md:px-8 md:py-16">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-5 md:grid-cols-4 md:gap-6">
+      <section className="relative z-10 border-y border-[var(--line)] bg-[var(--surface)] px-5 py-12 md:px-8 md:py-14">
+        <Stagger className="mx-auto grid max-w-7xl grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
           {metrics.map((metric) => (
-            <div key={metric.label} className="reveal stat-tile">
-              <p className="font-display text-4xl font-500 md:text-5xl">
+            <RevealItem key={metric.label} className="stat-tile">
+              <p className="font-display text-3xl font-600 md:text-4xl">
                 {metric.value}
               </p>
-              <p className="mt-3 text-sm leading-6 text-[var(--muted)] font-400">
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)] font-400">
                 {metric.label}
               </p>
-            </div>
+            </RevealItem>
           ))}
+        </Stagger>
+      </section>
+
+      <section id="confianza" className="relative z-10 border-b border-[var(--line)] bg-[var(--background)] px-5 py-16 md:px-8">
+        <div className="mx-auto w-full max-w-7xl">
+          <Reveal className="mb-8 text-center">
+            <p className="eyebrow">Confianza</p>
+            <h2 className="mt-3 font-display text-2xl font-600 tracking-tight text-[var(--foreground)] md:text-3xl">
+              Empresas que ya confían en nosotros
+            </h2>
+          </Reveal>
+          <Reveal
+            className="trusted-carousel"
+            aria-label="Empresas que confían en Jalector"
+          >
+            <div className="trusted-carousel-track">
+              {[...trustedEnterprises, ...trustedEnterprises].map(
+                (enterprise, index) => (
+                  <div
+                    className="trusted-carousel-item"
+                    key={`${enterprise.name}-${index}`}
+                  >
+                    <span className="trusted-carousel-logo">
+                      <Image
+                        alt={enterprise.name}
+                        className={
+                          enterprise.darkLogo
+                            ? "trusted-carousel-logo-image is-light"
+                            : "trusted-carousel-logo-image"
+                        }
+                        fill
+                        sizes="170px"
+                        src={enterprise.logo}
+                        unoptimized
+                      />
+                      {enterprise.darkLogo ? (
+                        <Image
+                          alt={enterprise.name}
+                          className="trusted-carousel-logo-image is-dark"
+                          fill
+                          sizes="170px"
+                          src={enterprise.darkLogo}
+                          unoptimized
+                        />
+                      ) : null}
+                    </span>
+                  </div>
+                ),
+              )}
+            </div>
+          </Reveal>
         </div>
       </section>
 
-      <section id="problema" className="section-shell">
+      <section id="problema" className="relative z-10 section-shell">
         <SectionHeader
           eyebrow="El estado actual"
           title="El reclutamiento convencional no fue diseñado para tu velocidad"
           text="Estos son los costos ocultos que detectamos en operaciones de talento de alto volumen en México."
         />
 
-        <div className="mx-auto mt-14 grid max-w-7xl grid-cols-1 gap-5 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
+        <Stagger className="mx-auto mt-14 grid max-w-7xl grid-cols-1 gap-5 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
           {painPoints.map((point) => {
             const Icon = point.icon;
             return (
-              <article key={point.title} className="reveal pain-card">
+              <RevealItem key={point.title} as="article" className="pain-card">
                 <div className="pain-icon">
                   <Icon size={22} />
                 </div>
@@ -509,39 +539,39 @@ export default function JalectorLanding() {
                   {point.title}
                 </h3>
                 <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{point.text}</p>
-              </article>
+              </RevealItem>
             );
           })}
-        </div>
+        </Stagger>
       </section>
 
-      <section id="proceso" className="section-shell border-y border-[var(--line)] bg-[var(--surface)]">
+      <section id="proceso" className="relative z-10 section-shell border-y border-[var(--line)] bg-[var(--surface)]">
         <SectionHeader
           eyebrow="Cómo opera"
           title="Una conversación, una ficha, una decisión"
           text="Diseñado para que el candidato avance por sí mismo y tu equipo intervenga solo cuando agrega valor."
         />
 
-        <div className="mx-auto mt-14 grid max-w-7xl grid-cols-1 gap-5 md:grid-cols-3 md:gap-6">
+        <Stagger className="mx-auto mt-14 grid max-w-7xl grid-cols-1 gap-5 md:grid-cols-3 md:gap-6">
           {candidateSteps.map((step, index) => {
             const Icon = step.icon;
             return (
-              <article key={step.title} className="reveal process-card">
+              <RevealItem key={step.title} as="article" className="process-card">
                 <span className="process-index">0{index + 1}</span>
                 <div className="icon-box">
                   <Icon size={24} />
                 </div>
                 <h3 className="mt-8 font-display text-xl font-500 tracking-tight">{step.title}</h3>
                 <p className="mt-4 text-sm leading-7 text-[var(--muted)]">{step.text}</p>
-              </article>
+              </RevealItem>
             );
           })}
-        </div>
+        </Stagger>
       </section>
 
-      <section id="datos-capturados" className="section-shell">
+      <section id="datos-capturados" className="relative z-10 section-shell">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-14 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-          <div className="reveal">
+          <Reveal>
             <p className="eyebrow">Información estructurada</p>
             <h2 className="section-title mt-5">
               Cada conversación se vuelve una ficha lista para decidir
@@ -566,27 +596,27 @@ export default function JalectorLanding() {
                 Exportable a CSV, ATS o API
               </span>
             </div>
-          </div>
+          </Reveal>
 
-          <div className="reveal data-chip-grid">
+          <Stagger className="data-chip-grid" stagger={0.04}>
             {collectedFields.map((field) => {
               const Icon = field.icon;
               return (
-                <div key={field.label} className="data-chip">
+                <RevealItem key={field.label} className="data-chip">
                   <span className="data-chip-icon">
                     <Icon size={15} />
                   </span>
                   <span>{field.label}</span>
-                </div>
+                </RevealItem>
               );
             })}
-          </div>
+          </Stagger>
         </div>
       </section>
 
-      <section id="producto" className="section-shell border-y border-[var(--line)] bg-[var(--surface)]">
+      <section id="producto" className="relative z-10 section-shell border-y border-[var(--line)] bg-[var(--surface)]">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-14 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
-          <div className="reveal">
+          <Reveal>
             <p className="eyebrow">Panel ejecutivo</p>
             <h2 className="section-title mt-5">Una sola vista para toda tu operación de talento</h2>
             <p className="mt-6 text-base leading-8 text-[var(--muted)]">
@@ -605,28 +635,25 @@ export default function JalectorLanding() {
                 </div>
               ))}
             </div>
-          </div>
+          </Reveal>
 
           <ProductBoard />
         </div>
       </section>
 
-      <section id="comparativa" className="section-shell">
+      <section id="comparativa" className="relative z-10 section-shell">
         <SectionHeader
           eyebrow="Comparativa"
           title="Jalector frente al reclutamiento convencional"
           text="Diferencias estructurales entre captar por WhatsApp con un panel propio y depender de un portal de empleo o un proceso manual en hojas de cálculo."
         />
 
-        <div className="reveal mx-auto mt-14 max-w-5xl overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+        <Reveal className="mx-auto mt-14 max-w-5xl overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]">
           <div className="comparison-table">
             <div className="comparison-head">
               <span>Característica</span>
               <span className="comparison-legacy-head">Bolsa de empleo</span>
-              <span className="comparison-jalector-head">
-                <Sparkles size={13} />
-                Jalector
-              </span>
+              <span className="comparison-jalector-head">Jalector</span>
             </div>
             {comparison.map((row) => (
               <div key={row.feature} className="comparison-row">
@@ -642,21 +669,21 @@ export default function JalectorLanding() {
               </div>
             ))}
           </div>
-        </div>
+        </Reveal>
       </section>
 
-      <section id="casos" className="section-shell border-y border-[var(--line)] bg-[var(--surface)]">
+      <section id="casos" className="relative z-10 section-shell border-y border-[var(--line)] bg-[var(--surface)]">
         <SectionHeader
           eyebrow="Casos de uso"
           title="Operaciones que ya cambiaron su forma de reclutar"
           text="Tres verticales, un mismo flujo: captar por WhatsApp y operar desde un panel ejecutivo."
         />
 
-        <div className="mx-auto mt-14 grid max-w-7xl grid-cols-1 gap-5 md:gap-6 lg:grid-cols-3">
+        <Stagger className="mx-auto mt-14 grid max-w-7xl grid-cols-1 gap-5 md:gap-6 lg:grid-cols-3">
           {useCases.map((useCase) => {
             const Icon = useCase.icon;
             return (
-              <article key={useCase.industry} className="reveal use-case-card">
+              <RevealItem key={useCase.industry} as="article" className="use-case-card">
                 <div className="use-case-header">
                   <div className="use-case-icon">
                     <Icon size={22} />
@@ -685,20 +712,20 @@ export default function JalectorLanding() {
                   <TrendingUp size={16} className="text-[var(--brand-green)]" />
                   <span>{useCase.metric}</span>
                 </div>
-              </article>
+              </RevealItem>
             );
           })}
-        </div>
+        </Stagger>
       </section>
 
-      <section id="faq" className="section-shell">
+      <section id="faq" className="relative z-10 section-shell">
         <SectionHeader
           eyebrow="Preguntas frecuentes"
           title="Lo que suelen preguntar antes de la primera demostración"
           text="Si tu duda no aparece aquí, escríbenos por WhatsApp o por correo y te respondemos el mismo día hábil."
         />
 
-        <div className="reveal mx-auto mt-12 max-w-3xl space-y-3">
+        <Reveal className="mx-auto mt-12 max-w-3xl space-y-3">
           {faqs.map((faq) => (
             <details key={faq.question} className="faq-item">
               <summary>
@@ -708,12 +735,12 @@ export default function JalectorLanding() {
               <p>{faq.answer}</p>
             </details>
           ))}
-        </div>
+        </Reveal>
       </section>
 
-      <section className="section-shell border-t border-[var(--line)]">
+      <section className="relative z-10 section-shell border-t border-[var(--line)]">
         <div className="mx-auto max-w-5xl">
-          <div className="reveal cta-panel cta-panel-wide">
+          <Reveal className="cta-panel cta-panel-wide">
             <BrandLogo size={64} />
             <h2 className="mt-8 font-display text-3xl font-500 leading-[1.05] tracking-tight text-white md:text-5xl">
               El bot ya está en marcha. Solicita acceso y empieza hoy.
@@ -727,7 +754,7 @@ export default function JalectorLanding() {
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <a
                 href="/registro"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-500 text-[#0f172a] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-500 text-[#0f172a] transition hover:bg-white/90"
               >
                 Solicitar acceso
                 <ArrowRight size={16} />
@@ -736,13 +763,13 @@ export default function JalectorLanding() {
                 href={WHATSAPP_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 bg-white/5 px-7 py-3.5 text-sm font-500 text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/10"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-transparent px-7 py-3.5 text-sm font-500 text-white transition hover:bg-white/10"
               >
                 Probar por WhatsApp
                 <ChevronRight size={16} />
               </a>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
@@ -768,7 +795,7 @@ export default function JalectorLanding() {
               </p>
               <a
                 href={EMAIL_URL}
-                className="mt-8 inline-flex items-center gap-2 rounded-full bg-[var(--foreground)] px-6 py-3 text-sm font-500 text-[var(--background)] transition hover:-translate-y-0.5 hover:shadow-lg"
+                className="mt-8 inline-flex items-center gap-2 rounded-full bg-[var(--foreground)] px-6 py-3 text-sm font-500 text-[var(--background)] transition hover:opacity-90"
               >
                 Contactar al equipo comercial
                 <ArrowRight size={15} />
@@ -817,10 +844,21 @@ export default function JalectorLanding() {
 }
 
 function HeroConsole() {
+  const reducedMotion = useReducedMotion();
+
   return (
-    <div className="hero-panel relative z-10">
+    <motion.div
+      className="hero-panel relative z-10"
+      initial={reducedMotion ? false : { opacity: 0, y: 28, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.75, delay: 0.38, ease: landingEase }}
+    >
       <div className="phone-shell">
-        <div className="scan-bar" />
+        <motion.div
+          className="scan-bar"
+          animate={reducedMotion ? undefined : { x: ["-110%", "110%"] }}
+          transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+        />
         <div className="phone-status">
           <span>9:41</span>
           <span className="phone-notch" />
@@ -869,8 +907,18 @@ function HeroConsole() {
                 3 vacantes match
               </span>
             </div>
-            {pipeline.map((candidate) => (
-              <div key={candidate.name} className="candidate-row wa-candidate">
+            {pipeline.map((candidate, index) => (
+              <motion.div
+                key={candidate.name}
+                className="candidate-row wa-candidate"
+                initial={reducedMotion ? false : { opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{
+                  delay: 0.9 + index * 0.16,
+                  duration: 0.7,
+                  ease: landingEase,
+                }}
+              >
                 <div className="grid h-9 w-9 place-items-center rounded-full bg-[#0b2d61] text-xs font-600 text-white">
                   {candidate.name.slice(0, 2).toUpperCase()}
                 </div>
@@ -882,7 +930,7 @@ function HeroConsole() {
                   <p className="text-xs font-600 text-[#00a884]">{candidate.match}%</p>
                   <p className="text-[9px] uppercase tracking-[0.12em] text-[#667781]">{candidate.status}</p>
                 </div>
-              </div>
+              </motion.div>
             ))}
             <p className="mt-3 text-[11px] font-500 text-[#008069]">
               Enviado al panel ejecutivo →
@@ -891,9 +939,23 @@ function HeroConsole() {
           </div>
 
           <div className="typing-pill">
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-            <span className="typing-dot" />
+            {[0, 1, 2].map((index) => (
+              <motion.span
+                key={index}
+                className="typing-dot"
+                animate={
+                  reducedMotion
+                    ? undefined
+                    : { opacity: [0.25, 1, 0.25], y: [0, -3, 0] }
+                }
+                transition={{
+                  duration: 0.9,
+                  repeat: Infinity,
+                  delay: index * 0.14,
+                  ease: "easeInOut",
+                }}
+              />
+            ))}
           </div>
         </div>
 
@@ -902,7 +964,7 @@ function HeroConsole() {
           <MessageCircle size={18} />
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -924,8 +986,10 @@ function BrandLogo({ size, priority = false }: { size: number; priority?: boolea
 }
 
 function ProductBoard() {
+  const reducedMotion = useReducedMotion();
+
   return (
-    <div className="reveal product-board">
+    <Reveal className="product-board">
       <div className="board-header">
         <div>
           <p className="text-[0.68rem] font-500 uppercase tracking-[0.18em] text-[var(--muted)]">
@@ -957,9 +1021,16 @@ function ProductBoard() {
                 <span className="text-[var(--muted)]">{value}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-[var(--track)]">
-                <div
+                <motion.div
                   className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand-green),var(--brand-teal))]"
-                  style={{ width: `${value}%` }}
+                  initial={{ width: reducedMotion ? `${value}%` : 0 }}
+                  whileInView={{ width: `${value}%` }}
+                  viewport={{ once: true, amount: 0.4 }}
+                  transition={
+                    reducedMotion
+                      ? { duration: 0 }
+                      : { duration: 0.9, ease: landingEase }
+                  }
                 />
               </div>
             </div>
@@ -1007,16 +1078,16 @@ function ProductBoard() {
           </div>
         </div>
       </div>
-    </div>
+    </Reveal>
   );
 }
 
 function SectionHeader({ eyebrow, title, text }: { eyebrow: string; title: string; text: string }) {
   return (
-    <div className="reveal mx-auto max-w-3xl text-center">
+    <Reveal className="mx-auto max-w-3xl text-center">
       <p className="eyebrow">{eyebrow}</p>
       <h2 className="section-title mt-4">{title}</h2>
       <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-[var(--muted)]">{text}</p>
-    </div>
+    </Reveal>
   );
 }

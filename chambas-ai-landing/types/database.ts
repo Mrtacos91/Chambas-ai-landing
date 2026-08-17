@@ -216,6 +216,10 @@ export interface Database {
           experience_required: string | null;
           benefits: string | null;
           requirements: string | null;
+          interview_at: string | null;
+          interview_address: string | null;
+          interview_details: string | null;
+          work_start_on: string | null;
           active: boolean | null;
           created_at: string | null;
           updated_at: string | null;
@@ -233,6 +237,10 @@ export interface Database {
           experience_required?: string | null;
           benefits?: string | null;
           requirements?: string | null;
+          interview_at?: string | null;
+          interview_address?: string | null;
+          interview_details?: string | null;
+          work_start_on?: string | null;
           active?: boolean | null;
           created_at?: string | null;
           updated_at?: string | null;
@@ -333,6 +341,9 @@ export interface Database {
           source: string;
           last_activity_at: string;
           updated_by: string | null;
+          confirmation_status: string;
+          confirmation_sent_at: string | null;
+          reminder_sent_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -346,6 +357,9 @@ export interface Database {
           source?: string;
           last_activity_at?: string;
           updated_by?: string | null;
+          confirmation_status?: string;
+          confirmation_sent_at?: string | null;
+          reminder_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

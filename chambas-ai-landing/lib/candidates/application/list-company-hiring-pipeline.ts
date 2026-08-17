@@ -4,6 +4,10 @@ import {
   type HiringStage,
   isHiringStage,
 } from "@/lib/candidates/domain/hiring-stages";
+import {
+  type ConfirmationStatus,
+  isConfirmationStatus,
+} from "@/lib/candidates/domain/confirmation-status";
 import { ensurePipelineRowsForCompany } from "@/lib/candidates/application/ensure-pipeline-rows";
 
 type Client = SupabaseClient<Database>;
@@ -25,11 +29,18 @@ export type CompanyHiringPipelineRow = {
   expectativaSalarial: string | null;
   documentacion: string | null;
   stage: HiringStage;
-  notes: string;
+    notes: string;
   hasInterest: boolean;
   source: string;
   completeness: number;
   lastActivity: string | null;
+  confirmationStatus: ConfirmationStatus;
+  confirmationSentAt: string | null;
+  reminderSentAt: string | null;
+  interviewAt: string | null;
+  interviewAddress: string | null;
+  interviewDetails: string | null;
+  workStartOn: string | null;
 };
 
 const PROFILE_FIELDS = [
@@ -70,7 +81,7 @@ export const listCompanyHiringPipeline = async (
 
   const { data: vacancies, error: vacanciesError } = await client
     .from("vacancies")
-    .select("id, title")
+    .select("id, title, interview_at, interview_address, interview_details, work_start_on")
     .eq("company_id", companyId);
 
   if (vacanciesError) {
@@ -83,11 +94,12 @@ export const listCompanyHiringPipeline = async (
   }
 
   const titleById = new Map((vacancies ?? []).map((row) => [row.id, row.title]));
+  const vacancyById = new Map((vacancies ?? []).map((row) => [row.id, row]));
 
   const { data: pipeline, error: pipelineError } = await client
     .from("vacancy_candidate_pipeline")
     .select(
-      "id, vacancy_id, candidate_phone, stage, notes, has_interest, source, last_activity_at, updated_at, created_at",
+      "id, vacancy_id, candidate_phone, stage, notes, has_interest, source, last_activity_at, updated_at, created_at, confirmation_status, confirmation_sent_at, reminder_sent_at",
     )
     .in("vacancy_id", vacancyIds)
     .order("last_activity_at", { ascending: false });
@@ -118,6 +130,12 @@ export const listCompanyHiringPipeline = async (
 
   return pipeline.map((row) => {
     const candidate = candidateByPhone.get(row.candidate_phone) ?? null;
+    const vacancy = vacancyById.get(row.vacancy_id);
+    const confirmationStatus: ConfirmationStatus = isConfirmationStatus(
+      row.confirmation_status,
+    )
+      ? row.confirmation_status
+      : "none";
     const stage = isHiringStage(row.stage) ? row.stage : "nuevo";
     const activityCandidates = [
       row.last_activity_at,
@@ -154,6 +172,13 @@ export const listCompanyHiringPipeline = async (
       source: row.source,
       completeness: computeCompleteness(candidate),
       lastActivity,
+      confirmationStatus,
+      confirmationSentAt: row.confirmation_sent_at,
+      reminderSentAt: row.reminder_sent_at,
+      interviewAt: vacancy?.interview_at ?? null,
+      interviewAddress: vacancy?.interview_address ?? null,
+      interviewDetails: vacancy?.interview_details ?? null,
+      workStartOn: vacancy?.work_start_on ?? null,
     };
   });
 };

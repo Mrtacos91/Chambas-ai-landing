@@ -1,6 +1,6 @@
 {
   "name": "chambas-ai-landing",
-  "version": "0.4.0",
+  "version": "0.6.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -15,12 +15,12 @@
     "@supabase/supabase-js": "^2.108.1",
     "animejs": "^4.4.1",
     "lucide-react": "^0.577.0",
+    "motion": "^13.1.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.12.4",
     "standardwebhooks": "^1.0.0",
-    "three": "^0.143.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -28,7 +28,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/three": "^0.143.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",

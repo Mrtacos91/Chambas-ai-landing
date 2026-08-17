@@ -733,7 +733,35 @@ const registrationSteps = new Set([
   'confirmacion_resumen'
 ]);
 
+let handledEarly = false;
+const MEDIA_SIN_TEXTO = '__media_sin_texto__';
+
+if (!data || typeof data !== 'object') data = {};
+if (typeof data.invalid_attempts !== 'number') data.invalid_attempts = Number(data.invalid_attempts) || 0;
+
+let confirmationDecision = null;
+const pendingConfirmationId = $json.pending_confirmation_id || null;
+const hasPendingConfirmation = Boolean(pendingConfirmationId);
+
+function isConfirmCita(value) {
+  return (
+    value === '1' ||
+    value === 'si' ||
+    value === 'sí' ||
+    value === 'confirmo' ||
+    value === 'confirmar'
+  );
+}
+
+function isDeclineCita(value) {
+  return value === '2' || value === 'no';
+}
+
+const isCitaReply =
+  hasPendingConfirmation && (isConfirmCita(normalized) || isDeclineCita(normalized));
+
 const shouldShowExistingProfileMenu =
+  !isCitaReply &&
   candidateExists &&
   (
     currentStep === 'bienvenida' ||
@@ -751,13 +779,17 @@ if (shouldShowExistingProfileMenu) {
   currentStep = 'menu_candidato_existente';
 }
 
-let handledEarly = false;
-const MEDIA_SIN_TEXTO = '__media_sin_texto__';
-
-if (!data || typeof data !== 'object') data = {};
-if (typeof data.invalid_attempts !== 'number') data.invalid_attempts = Number(data.invalid_attempts) || 0;
-
-if (text === MEDIA_SIN_TEXTO || normalized === 'mediasintexto' || normalized === MEDIA_SIN_TEXTO) {
+if (isCitaReply) {
+  handledEarly = true;
+  if (isConfirmCita(normalized)) {
+    confirmationDecision = 'confirmed';
+    reply = 'Cita confirmada. Te recordamos un dia antes con la sede y las pruebas. Si cambias de planes, escribe 2.';
+  } else {
+    confirmationDecision = 'declined';
+    reply = 'Queda registrada tu respuesta. Si mas adelante puedes ir, pide a reclutacion que te reenvie la cita.';
+  }
+  nextStep = currentStep;
+} else if (text === MEDIA_SIN_TEXTO || normalized === 'mediasintexto' || normalized === MEDIA_SIN_TEXTO) {
   handledEarly = true;
   const attempts = registerInvalid(data, 'media_sin_texto');
   reply = buildRetryReply(
@@ -1802,6 +1834,8 @@ return [
 
       selected_vacancy_id: selectedVacancyId,
       selected_vacancy: selectedVacancy,
+      confirmation_decision: confirmationDecision,
+      pending_confirmation_id: pendingConfirmationId,
     },
   },
 ];
